@@ -317,7 +317,9 @@ private fun ConversationRow(c: Conversation, state: MailUiState, selected: Boole
                 contentAlignment = Alignment.Center,
             ) { if (selected) Icon(Symbols.Check, null, tint = colors.onPrimary) }
         } else {
-            Avatar(recipients.firstOrNull()?.short() ?: c.newest.fromName.ifBlank { c.newest.fromAddress }, unreadDot = c.unread)
+            // The other person in the conversation, even if the last word was one's own.
+            val other = c.messages.lastOrNull { it.fromAddress.lowercase() !in own } ?: c.newest
+            Avatar(recipients.firstOrNull()?.short() ?: other.fromName.ifBlank { other.fromAddress }, unreadDot = c.unread)
         }
         Column(Modifier.padding(start = 16.dp).weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

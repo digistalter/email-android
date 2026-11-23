@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.deviablo.email.setup.SetupScreen
 import io.github.deviablo.email.ui.compose.ComposeScreen
 
 private sealed interface Screen {
@@ -38,10 +39,8 @@ fun AppRoot(vm: MailViewModel = viewModel(), initialCompose: ComposeRequest? = n
         if (debugAccount != null && state.accounts.none { it.address == debugAccount.address }) vm.addAccount(debugAccount)
     }
     if (state.accounts.isEmpty() || state.showAccountForm) {
-        AccountFormScreen(
-            busy = state.formBusy, error = state.formError, canCancel = state.accounts.isNotEmpty(),
-            onSubmit = vm::addAccount, onCancel = { vm.showAccountForm(false) },
-        )
+        // Keyed by whether accounts exist, so the first account's "Done" page stays until it is left.
+        SetupScreen(vm, canCancel = state.accounts.isNotEmpty() && state.showAccountForm, onFinished = { vm.showAccountForm(false) })
         return
     }
     BoxWithConstraints(Modifier.fillMaxSize()) {

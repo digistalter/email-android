@@ -19,6 +19,8 @@ import io.github.deviablo.email.data.UndoToken
 import io.github.deviablo.email.mail.imap.ImapAuthException
 import io.github.deviablo.email.mail.imap.Security
 import io.github.deviablo.email.mail.imap.ServerSettings
+import io.github.deviablo.email.setup.DiscoveredSettings
+import io.github.deviablo.email.setup.ServerConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -264,36 +266,35 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Debug builds only: adds the local test account without the setup screens. */
     fun addAccount(form: AccountForm) {
-        val port = form.port.toIntOrNull()
-        if (form.address.isBlank() || form.host.isBlank() || port == null || form.password.isEmpty()) {
-            _state.update { it.copy(formError = R.string.error_form_incomplete) }
-            return
-        }
-        val username = form.username.ifBlank { form.address.trim() }
-        val settings = ServerSettings(form.host.trim(), port, form.security, username)
+        val port = form.port.toIntOrNull() ?: return
+        val settings = DiscoveredSettings(
+            ServerConfig(form.host.trim(), port, form.security),
+            ServerConfig(form.smtpHost.trim().ifBlank { form.host.trim() }, form.smtpPort.toIntOrNull() ?: 465, form.smtpSecurity),
+            form.username.ifBlank { form.address.trim() },
+        )
         viewModelScope.launch {
-            _state.update { it.copy(formBusy = true, formError = null) }
-            val error = io { runCatching { repo.check(settings, form.password) }.exceptionOrNull() }
-            if (error != null) {
-                _state.update { it.copy(formBusy = false, formError = friendlyError(error)) }
-                return@launch
-            }
-            val account = Account(
-                id = 0,
-                name = form.accountName.ifBlank { form.address.substringAfter('@').substringBefore('.').replaceFirstChar { it.uppercase() } },
-                displayName = form.displayName.trim(),
-                address = form.address.trim(),
-                imapHost = settings.host, imapPort = port, imapSecurity = form.security, username = username,
-                smtpHost = form.smtpHost.trim().ifBlank { settings.host }, smtpPort = form.smtpPort.toIntOrNull() ?: 465, smtpSecurity = form.smtpSecurity,
-            )
-            val id = io { db.insertAccount(account, PasswordVault.encrypt(form.password)) }
-            val accounts = io { db.accounts() }
-            repo.settings.activeAccountId = id
-            _state.update { it.copy(formBusy = false, showAccountForm = false, accounts = accounts, activeAccountId = id, currentFolderId = null) }
-            reload()
-            syncActive()
+            val error = io { runCatching { repo.check(ServerSettings(settings.imap.host, port, form.security, settings.username), form.password) }.exceptionOrNull() }
+            if (error != null) { friendlyError(error); return@launch }
+            if (createAccount(form.address.trim(), form.displayName.trim(), form.accountName.ifBlank { "Test" }, settings, form.password)) showAccountForm(false)
         }
+    }
+
+    /** Stores a checked account, makes it the active one and starts loading its mail. */
+    suspend fun createAccount(address: String, displayName: String, label: String, s: DiscoveredSettings, password: String): Boolean {
+        val account = Account(
+            id = 0, name = label, displayName = displayName, address = address,
+            imapHost = s.imap.host, imapPort = s.imap.port, imapSecurity = s.imap.security, username = s.username,
+            smtpHost = s.smtp.host, smtpPort = s.smtp.port, smtpSecurity = s.smtp.security,
+        )
+        val id = io { runCatching { db.insertAccount(account, PasswordVault.encrypt(password)) }.getOrNull() } ?: return false
+        val accounts = io { db.accounts() }
+        repo.settings.activeAccountId = id
+        _state.update { it.copy(accounts = accounts, activeAccountId = id, currentFolderId = null, openKey = null, search = null, selection = emptySet()) }
+        reload()
+        syncActive()
+        return true
     }
 
     fun reloadAccounts() = viewModelScope.launch {
