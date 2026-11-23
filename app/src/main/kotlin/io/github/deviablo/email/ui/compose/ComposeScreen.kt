@@ -504,7 +504,8 @@ private fun RecipientRow(
                     if (value.endsWith(",") || value.endsWith(";") || (value.endsWith(" ") && Compose.parseMailbox(value.trim()) != null)) commit(value.trimEnd(',', ';', ' '))
                     else onText(value)
                 },
-                Modifier.widthIn(min = 120.dp).padding(vertical = 10.dp).onFocusChanged { f ->
+                // Takes the rest of the line next to the chips; wraps only when less than 80 dp are left.
+                Modifier.widthIn(min = 80.dp).weight(1f).padding(vertical = 10.dp).onFocusChanged { f ->
                     if (focused && !f.isFocused && text.isNotBlank()) commit(text)
                     focused = f.isFocused
                 },

@@ -292,7 +292,21 @@ class MailRepository private constructor(context: Context) {
             if (entry != null && now - entry.second > 60_000) {
                 if (runCatching { entry!!.first.noop() }.isFailure) { entry.first.close(); entry = null; clients.remove(account.id) }
             }
-            val client = entry?.first ?: ImapClient.connect(account.imapSettings()).also { it.login(account.username, password) }
+            val reused = entry?.first
+            if (reused != null) {
+                try {
+                    val result = block(reused)
+                    clients[account.id] = reused to now
+                    return@synchronized result
+                } catch (e: java.io.IOException) {
+                    // The kept connection broke in the meantime (network change, server timeout): once more with a new one.
+                    reused.close(); clients.remove(account.id)
+                } catch (e: Exception) {
+                    reused.close(); clients.remove(account.id)
+                    throw e
+                }
+            }
+            val client = ImapClient.connect(account.imapSettings()).also { it.login(account.username, password) }
             try {
                 val result = block(client)
                 clients[account.id] = client to now

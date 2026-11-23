@@ -200,7 +200,7 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Bo
     LaunchedEffect(m.id) {
         val result = withContext(Dispatchers.IO) {
             allowedForDomain = vm.repo.imagesAllowed(m.accountId, domain)
-            runCatching { vm.repo.loadMessage(m) }.getOrNull()
+            runCatching { vm.repo.loadMessage(m) }.onFailure { android.util.Log.i("Reader", "message ${m.id}: ${it.javaClass.simpleName}") }.getOrNull()
         }
         parsed = result
         failed = result == null
