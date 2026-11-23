@@ -153,6 +153,38 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** A general setting changed: grouping and image rules affect what is shown. */
+    fun settingsChanged() {
+        viewModelScope.launch { reload() }
+    }
+
+    fun updateAccount(account: Account, newPassword: String? = null) {
+        viewModelScope.launch {
+            io { db.updateAccount(account, newPassword?.let { PasswordVault.encrypt(it) }) }
+            val accounts = io { db.accounts() }
+            _state.update { it.copy(accounts = accounts) }
+            Notifier.ensureChannels(getApplication(), accounts)
+        }
+    }
+
+    /** Removes the account and everything stored for it on this device (the server keeps its mail). */
+    suspend fun removeAccount(id: Long) {
+        io {
+            repo.closeConnections()
+            db.deleteAccount(id)
+            repo.pruneBodies()
+        }
+        val accounts = io { db.accounts() }
+        Notifier.ensureChannels(getApplication(), accounts)
+        io { io.github.deviablo.email.background.PushService.update(getApplication()) }
+        val active = accounts.firstOrNull { it.id == _state.value.activeAccountId }?.id ?: accounts.firstOrNull()?.id
+        active?.let { repo.settings.activeAccountId = it }
+        _state.update {
+            it.copy(accounts = accounts, activeAccountId = active, currentFolderId = null, openKey = null, search = null, selection = emptySet(), showAccountForm = accounts.isEmpty(), conversations = emptyList(), folders = emptyList())
+        }
+        reload()
+    }
+
     fun showAccountForm(show: Boolean) = _state.update { it.copy(showAccountForm = show, formError = null) }
 
     // --- selection ---

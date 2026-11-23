@@ -465,7 +465,7 @@ private fun ChoiceCard(title: String, subtitle: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ServerFields(title: String, host: String, onHost: (String) -> Unit, port: String, onPort: (String) -> Unit, security: Security, onSecurity: (Security) -> Unit) {
+internal fun ServerFields(title: String, host: String, onHost: (String) -> Unit, port: String, onPort: (String) -> Unit, security: Security, onSecurity: (Security) -> Unit) {
     Text(title, Modifier.padding(top = 16.dp, bottom = 4.dp), style = MaterialTheme.typography.titleSmall)
     OutlinedTextField(host, { onHost(it.trim()) }, Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.setup_server)) }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri))

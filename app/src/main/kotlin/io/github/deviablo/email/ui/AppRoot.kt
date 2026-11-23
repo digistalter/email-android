@@ -14,6 +14,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +23,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.deviablo.email.setup.SetupScreen
+import io.github.deviablo.email.ui.settings.SettingsScreen
 import io.github.deviablo.email.ui.compose.ComposeScreen
 
 private sealed interface Screen {
@@ -29,16 +32,22 @@ private sealed interface Screen {
     data object Settings : Screen
 }
 
+private val ScreenSaver = Saver<Screen, Int>(save = { if (it == Screen.Settings) 1 else 0 }, restore = { if (it == 1) Screen.Settings else Screen.Main })
+
 /** Top level: mail, composer, settings and account setup. Plain state instead of a navigation library. */
 @Composable
 fun AppRoot(vm: MailViewModel = viewModel(), initialCompose: ComposeRequest? = null, debugAccount: AccountForm? = null) {
     val state by vm.state.collectAsState()
-    var screen by remember { mutableStateOf<Screen>(initialCompose?.let { Screen.Compose(it) } ?: Screen.Main) }
+    // Settings survive a restart of the screen (e.g. after switching the app language); a composer
+    // keeps its text in the drafts instead.
+    var screen by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(initialCompose?.let { Screen.Compose(it) } ?: Screen.Main) }
     if (!state.loaded) return
     LaunchedEffect(debugAccount) {
         if (debugAccount != null && state.accounts.none { it.address == debugAccount.address }) vm.addAccount(debugAccount)
     }
     if (state.accounts.isEmpty() || state.showAccountForm) {
+        // After the setup the inbox opens, not the page the setup was started from.
+        LaunchedEffect(Unit) { screen = Screen.Main }
         // Keyed by whether accounts exist, so the first account's "Done" page stays until it is left.
         SetupScreen(vm, canCancel = state.accounts.isNotEmpty() && state.showAccountForm, onFinished = { vm.showAccountForm(false) })
         return
@@ -50,8 +59,7 @@ fun AppRoot(vm: MailViewModel = viewModel(), initialCompose: ComposeRequest? = n
         val closeCompose = { screen = Screen.Main }
         when {
             screen == Screen.Settings -> {
-                BackHandler { screen = Screen.Main }
-                SettingsScreen(vm, onBack = { screen = Screen.Main })
+                SettingsScreen(vm, onBack = { screen = Screen.Main }, onAddAccount = { screen = Screen.Main; vm.showAccountForm(true) })
             }
             compose != null && !wide -> ComposeScreen(vm, compose, onClose = closeCompose)
             else -> {
