@@ -26,8 +26,9 @@ def wait_for(port: int) -> None:
     raise SystemExit(f"GreenMail did not open port {port}")
 
 
+# Only SMTP is probed: a bare connect to the TLS port makes GreenMail log a scary stack trace.
+# Both ports are opened together at start-up.
 wait_for(3025)
-wait_for(3993)
 with smtplib.SMTP("127.0.0.1", 3025) as smtp:
     for sender, subject, text, attachment in MAILS:
         msg = EmailMessage()
