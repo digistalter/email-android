@@ -244,4 +244,13 @@
     <string name="advice_mailbox">Signing in worked, but the mailbox could not be opened. Please try again later.</string>
     <string name="security_tls">SSL/TLS</string>
     <string name="security_starttls">STARTTLS</string>
+    <string name="channel_group_mail">New mail</string>
+    <string name="channel_mail_description">New mail for %1$s</string>
+    <string name="channel_push">Instant notifications</string>
+    <string name="channel_push_description">Shown while the app keeps a connection open for instant notifications.</string>
+    <string name="push_running">Waiting for new mail</string>
+    <plurals name="new_mail_count">
+        <item quantity="one">%1$d new email</item>
+        <item quantity="other">%1$d new emails</item>
+    </plurals>
 </resources>

@@ -36,6 +36,10 @@ class Settings(context: Context) {
         get() = AutoEmpty.valueOf(prefs.getString("emptySpam", AutoEmpty.NEVER.name)!!)
         set(v) = prefs.edit { putString("emptySpam", v.name) }
 
+    var askedForNotifications: Boolean
+        get() = prefs.getBoolean("askedNotify", false)
+        set(v) = prefs.edit { putBoolean("askedNotify", v) }
+
     var activeAccountId: Long
         get() = prefs.getLong("active", -1)
         set(v) = prefs.edit { putLong("active", v) }

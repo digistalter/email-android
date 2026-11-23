@@ -2,6 +2,7 @@
 package io.github.deviablo.email.data
 
 import android.content.Context
+import io.github.deviablo.email.background.Notifier
 import io.github.deviablo.email.mail.Compose
 import io.github.deviablo.email.mail.Draft
 import io.github.deviablo.email.mail.Mailbox
@@ -22,6 +23,7 @@ data class UndoToken(val opIds: List<Long>)
  * actions all go through here, so local changes and the server queue stay consistent.
  */
 class MailRepository private constructor(context: Context) {
+    private val appContext = context
     val db = MailDatabase(context)
     val bodies = BodyStore(context)
     val settings = Settings(context)
@@ -122,6 +124,7 @@ class MailRepository private constructor(context: Context) {
     }
 
     fun setRead(messages: List<StoredMessage>, read: Boolean) {
+        if (read) Notifier.withdraw(appContext, messages.map { it.id })
         for (m in messages.filter { it.seen != read }) {
             db.setFlags(m.id, seen = read)
             flagOp(m, "\\Seen", read)
@@ -140,6 +143,7 @@ class MailRepository private constructor(context: Context) {
         if (read) setRead(c.messages, true) else setRead(listOf(c.newest), false)
 
     fun move(messages: List<StoredMessage>, target: Folder): UndoToken {
+        Notifier.withdraw(appContext, messages.map { it.id })
         val ids = mutableListOf<Long>()
         for (m in messages) {
             if (m.folderId == target.id) continue

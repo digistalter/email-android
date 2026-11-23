@@ -8,6 +8,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -37,6 +39,23 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
                 .setInputData(workDataOf(KEY_ACCOUNT to accountId))
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork("sync-$accountId", ExistingWorkPolicy.APPEND_OR_REPLACE, request)
+        }
+
+        /** Like [now], after [delayMs] (e.g. once the undo time of a delete is over). */
+        fun soon(context: Context, accountId: Long, delayMs: Long) {
+            if (delayMs <= 0) return now(context, accountId)
+            val request = OneTimeWorkRequestBuilder<SyncWorker>()
+                .setConstraints(network)
+                .setInitialDelay(delayMs, TimeUnit.MILLISECONDS)
+                .setInputData(workDataOf(KEY_ACCOUNT to accountId))
+                .build()
+            WorkManager.getInstance(context).enqueueUniqueWork("soon-$accountId", ExistingWorkPolicy.REPLACE, request)
+        }
+
+        /** The regular check every 15 minutes (the shortest Android allows), only with a network. */
+        fun schedulePeriodic(context: Context) {
+            val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).setConstraints(network).build()
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork("periodic", ExistingPeriodicWorkPolicy.UPDATE, request)
         }
 
         /** Another try for mail that could not go out yet. */

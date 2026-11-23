@@ -242,4 +242,13 @@
     <string name="advice_mailbox">Die Anmeldung hat geklappt, aber das Postfach ließ sich nicht öffnen. Bitte versuche es später noch einmal.</string>
     <string name="security_tls">SSL/TLS</string>
     <string name="security_starttls">STARTTLS</string>
+    <string name="channel_group_mail">Neue Mails</string>
+    <string name="channel_mail_description">Neue Mails für %1$s</string>
+    <string name="channel_push">Sofort benachrichtigen</string>
+    <string name="channel_push_description">Wird angezeigt, solange die App für sofortige Benachrichtigungen verbunden bleibt.</string>
+    <string name="push_running">Wartet auf neue Mails</string>
+    <plurals name="new_mail_count">
+        <item quantity="one">%1$d neue Mail</item>
+        <item quantity="other">%1$d neue Mails</item>
+    </plurals>
 </resources>

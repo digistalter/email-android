@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.deviablo.email.BuildConfig
 import io.github.deviablo.email.R
+import io.github.deviablo.email.background.Notifier
 import io.github.deviablo.email.data.Account
 import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.Folder
@@ -138,6 +139,20 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         if (c != null && c.unread) viewModelScope.launch { io { repo.setRead(c.messages, true) } }
     }
 
+    /** From a notification: switch to the account and open the mail's conversation. */
+    fun openMessage(accountId: Long, messageId: Long?) {
+        viewModelScope.launch {
+            if (_state.value.accounts.none { it.id == accountId }) return@launch
+            val m = messageId?.let { io { db.message(it) } }
+            if (accountId != _state.value.activeAccountId) repo.settings.activeAccountId = accountId
+            _state.update { it.copy(activeAccountId = accountId, currentFolderId = m?.folderId, openKey = null, search = null, selection = emptySet(), showAccountForm = false) }
+            reload()
+            val c = m?.let { msg -> _state.value.conversations.firstOrNull { conv -> conv.messages.any { it.id == msg.id } } }
+            if (c != null) openConversation(c)
+            syncActive()
+        }
+    }
+
     fun showAccountForm(show: Boolean) = _state.update { it.copy(showAccountForm = show, formError = null) }
 
     // --- selection ---
@@ -254,12 +269,21 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         _snacks.trySend(s)
     }
 
+    private var lastSync = 0L
+
+    /** Back in the app: fetch news if the last check is more than a minute ago. */
+    fun onResume() {
+        if (System.currentTimeMillis() - lastSync > 60_000) syncActive()
+    }
+
     fun syncActive() {
         val account = _state.value.activeAccount ?: return
         if (_state.value.syncing) return
         viewModelScope.launch {
             _state.update { it.copy(syncing = true, syncError = null) }
+            lastSync = System.currentTimeMillis()
             val result = io { runCatching { repo.syncAccount(account) } }
+            result.getOrNull()?.let { Notifier.newMail(getApplication(), account, it.newInboxMail) }
             _state.update { it.copy(syncing = false, syncError = result.exceptionOrNull()?.let(::friendlyError)) }
             if ((result.getOrNull()?.rejected ?: 0) > 0) _snacks.trySend(Snack(R.string.server_refused))
             reload()

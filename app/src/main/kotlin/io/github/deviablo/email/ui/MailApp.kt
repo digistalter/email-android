@@ -62,6 +62,7 @@ import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.FolderRole
 import io.github.deviablo.email.data.StoredMessage
 import io.github.deviablo.email.data.SendEvent
+import io.github.deviablo.email.background.OnScreen
 import io.github.deviablo.email.mail.Draft
 import io.github.deviablo.email.mail.Original
 import io.github.deviablo.email.mail.ReplyKind
@@ -138,6 +139,8 @@ fun MailApp(
             }
         }
     }
+
+    LaunchedEffect(state.openKey) { OnScreen.threadKey = state.openKey }
 
     val open: (Conversation) -> Unit = { c ->
         val draftFolder = state.currentFolder?.role == FolderRole.DRAFTS
