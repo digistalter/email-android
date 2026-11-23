@@ -23,5 +23,32 @@
 
     <string name="nothing_selected_title">Keine Unterhaltung ausgewählt</string>
     <string name="nothing_selected_body">Tippe links auf eine Mail, um sie hier zu lesen.</string>
-    <string name="sample_notice">Beispieldaten – noch kein echtes Konto verbunden.</string>
+    <string name="yesterday">Gestern</string>
+    <string name="loading_inbox">Mails werden geladen …</string>
+    <string name="empty_folder">Keine Mails</string>
+    <string name="empty_folder_body">Neue Mails erscheinen hier.</string>
+    <string name="body_later">Der Inhalt wird im nächsten Entwicklungsschritt geladen.</string>
+    <string name="no_subject">(kein Betreff)</string>
+
+    <string name="form_title">Konto hinzufügen</string>
+    <string name="form_interim">Vorläufiges Formular zum Testen. Die geführte Einrichtung mit automatischer Servererkennung folgt später.</string>
+    <string name="form_account_name">Name für dieses Konto</string>
+    <string name="form_display_name">Dein Name</string>
+    <string name="form_address">E-Mail-Adresse</string>
+    <string name="form_host">Posteingangsserver (IMAP)</string>
+    <string name="form_port">Port</string>
+    <string name="form_security_tls">SSL/TLS</string>
+    <string name="form_security_starttls">STARTTLS</string>
+    <string name="form_username">Benutzername (falls anders als die Adresse)</string>
+    <string name="form_password">Passwort oder App-Passwort</string>
+    <string name="form_connect">Verbinden</string>
+    <string name="form_cancel">Abbrechen</string>
+    <string name="form_local_only">Deine Zugangsdaten bleiben auf diesem Gerät.</string>
+
+    <string name="error_form_incomplete">Bitte Adresse, Server, Port und Passwort ausfüllen.</string>
+    <string name="error_login">Anmeldung fehlgeschlagen. Bitte Benutzername und Passwort prüfen.</string>
+    <string name="error_unknown_host">Der Server wurde nicht gefunden. Bitte den Namen prüfen.</string>
+    <string name="error_tls">Die sichere Verbindung konnte nicht geprüft werden. Dem Zertifikat des Servers wird nicht vertraut.</string>
+    <string name="error_unreachable">Der Server ist nicht erreichbar. Bitte Server, Port und Internetverbindung prüfen.</string>
+    <string name="error_generic">Beim Verbinden ist etwas schiefgegangen.</string>
 </resources>

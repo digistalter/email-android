@@ -25,5 +25,32 @@
 
     <string name="nothing_selected_title">No conversation selected</string>
     <string name="nothing_selected_body">Tap a mail on the left to read it here.</string>
-    <string name="sample_notice">Sample data – no real account connected yet.</string>
+    <string name="yesterday">Yesterday</string>
+    <string name="loading_inbox">Loading mail …</string>
+    <string name="empty_folder">No mail</string>
+    <string name="empty_folder_body">New mail will appear here.</string>
+    <string name="body_later">The content will be loaded in the next development step.</string>
+    <string name="no_subject">(no subject)</string>
+
+    <string name="form_title">Add account</string>
+    <string name="form_interim">Interim form for testing. The guided setup with automatic server detection follows later.</string>
+    <string name="form_account_name">Name for this account</string>
+    <string name="form_display_name">Your name</string>
+    <string name="form_address">Email address</string>
+    <string name="form_host">Incoming server (IMAP)</string>
+    <string name="form_port">Port</string>
+    <string name="form_security_tls">SSL/TLS</string>
+    <string name="form_security_starttls">STARTTLS</string>
+    <string name="form_username">User name (if different from the address)</string>
+    <string name="form_password">Password or app password</string>
+    <string name="form_connect">Connect</string>
+    <string name="form_cancel">Cancel</string>
+    <string name="form_local_only">Your credentials stay on this device.</string>
+
+    <string name="error_form_incomplete">Please fill in address, server, port and password.</string>
+    <string name="error_login">Sign-in failed. Please check user name and password.</string>
+    <string name="error_unknown_host">The server could not be found. Please check its name.</string>
+    <string name="error_tls">The secure connection could not be verified. The server\'s certificate is not trusted.</string>
+    <string name="error_unreachable">The server could not be reached. Please check server, port and internet connection.</string>
+    <string name="error_generic">Something went wrong while connecting.</string>
 </resources>

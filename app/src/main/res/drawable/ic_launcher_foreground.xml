@@ -1,21 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
-<!-- Placeholder: envelope with seal, based on the Linux app icon. -->
+<!-- Envelope with seal (the Linux app's motif) in bold, saturated Material colours. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!-- envelope -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M33,38h42a4,4 0 0 1 4,4v26a4,4 0 0 1 -4,4h-42a4,4 0 0 1 -4,-4v-26a4,4 0 0 1 4,-4z" />
+        android:fillColor="#1A73E8"
+        android:pathData="M36,36h36a7,7 0,0 1,7 7v24a7,7 0,0 1,-7 7h-36a7,7 0,0 1,-7 -7v-24a7,7 0,0 1,7 -7z" />
+    <!-- lower half a shade lighter, so the flap reads as folded paper -->
+    <path
+        android:fillColor="#4285F4"
+        android:pathData="M29,46.5L54,62L79,46.5V67a7,7 0,0 1,-7 7h-36a7,7 0,0 1,-7 -7z" />
+    <!-- flap -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#C9D3E0"
-        android:strokeWidth="2.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M31,41 L54,58 L77,41" />
+        android:pathData="M34,40L54,54.5L74,40" />
+    <!-- seal -->
     <path
-        android:fillColor="#E95420"
-        android:pathData="M68,62m-9,0a9,9 0 1 0 18,0a9,9 0 1 0 -18,0" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M74,70m-13.5,0a13.5,13.5 0,1 0,27 0a13.5,13.5 0,1 0,-27 0" />
+    <path
+        android:fillColor="#EA4335"
+        android:pathData="M74,70m-10.5,0a10.5,10.5 0,1 0,21 0a10.5,10.5 0,1 0,-21 0" />
+    <path
+        android:fillColor="#FBBC04"
+        android:pathData="M74,70m-4,0a4,4 0,1 0,8 0a4,4 0,1 0,-8 0" />
 </vector>
