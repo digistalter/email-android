@@ -62,6 +62,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
@@ -118,7 +119,7 @@ fun ReaderPane(
             c.messages.forEach { m ->
                 val isNewest = m.id == c.newest.id
                 if (m.id == openId) {
-                    OpenMessage(m, isNewest, vm, dark, onHeader = { if (!isNewest) openId = c.newest.id }, onReply = onReply)
+                    OpenMessage(m, isNewest, c.messages.size > 1, vm, dark, onHeader = { if (!isNewest) openId = c.newest.id }, onReply = onReply)
                 } else {
                     FoldedMessage(m, onClick = { openId = m.id })
                 }
@@ -188,7 +189,7 @@ private fun FoldedMessage(m: StoredMessage, onClick: () -> Unit) {
 }
 
 @Composable
-private fun OpenMessage(m: StoredMessage, isNewest: Boolean, vm: MailViewModel, dark: Boolean, onHeader: () -> Unit, onReply: (StoredMessage, ReplyMode) -> Unit) {
+private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Boolean, vm: MailViewModel, dark: Boolean, onHeader: () -> Unit, onReply: (StoredMessage, ReplyMode) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
     var parsed by remember(m.id) { mutableStateOf<ParsedMessage?>(null) }
@@ -224,7 +225,7 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, vm: MailViewModel, 
                     Text(m.fromName.ifBlank { m.fromAddress }, fontWeight = FontWeight.Medium)
                     Text(stringResource(R.string.to_line, recipients, fullDate), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                if (isNewest) {
+                if (isNewest && showNewestBadge) {
                     Surface(shape = CircleShape, color = colors.primary) {
                         Text(stringResource(R.string.newest), Modifier.padding(horizontal = 8.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = colors.onPrimary)
                     }
@@ -235,13 +236,13 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, vm: MailViewModel, 
                 p != null -> {
                     val allow = showImagesOnce || allowedForDomain
                     val prepared = remember(p, allow, dark) {
-                        p.html?.let { HtmlSafety.prepare(it, allow, dark) } ?: HtmlSafety.Result(HtmlSafety.fromText(p.text.orEmpty(), dark), false)
+                        p.html?.let { HtmlSafety.prepare(it, allow, dark, p.inlineResolver()) } ?: HtmlSafety.Result(HtmlSafety.fromText(p.text.orEmpty(), dark), false)
                     }
                     if (prepared.blockedImages) {
                         Surface(Modifier.padding(horizontal = 12.dp).fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = colors.surfaceContainer) {
                             Column(Modifier.padding(12.dp)) {
                                 Text(stringResource(R.string.images_blocked), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
-                                Row(Modifier.padding(top = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedButton(onClick = { showImagesOnce = true }) { Text(stringResource(R.string.show_once)) }
                                     OutlinedButton(onClick = {
                                         allowedForDomain = true
@@ -396,7 +397,7 @@ private suspend fun printConversation(context: Context, vm: MailViewModel, c: Co
     val parts = withContext(Dispatchers.IO) {
         c.messages.map { m ->
             val p = runCatching { vm.repo.loadMessage(m) }.getOrNull()
-            val body = p?.html?.let { HtmlSafety.prepare(it, false, false).html.substringAfter("<body>").substringBeforeLast("</body>") }
+            val body = p?.html?.let { HtmlSafety.prepare(it, false, false, p.inlineResolver()).html.substringAfter("<body>").substringBeforeLast("</body>") }
                 ?: (p?.text ?: "").replace("&", "&amp;").replace("<", "&lt;").let { "<pre style=\"white-space:pre-wrap\">$it</pre>" }
             val head = "<p><b>${esc(m.fromName.ifBlank { m.fromAddress })}</b> &lt;${esc(m.fromAddress)}&gt;<br>${esc(DateFormat.getDateTimeInstance().format(Date(m.dateMillis)))}</p>"
             head + body
@@ -416,3 +417,7 @@ private suspend fun printConversation(context: Context, vm: MailViewModel, c: Co
 }
 
 private fun esc(s: String) = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+private fun ParsedMessage.inlineResolver(): (String) -> Pair<String, ByteArray>? = { cid ->
+    inlineImage(cid)?.let { it.mimeType to it.bytes() }
+}

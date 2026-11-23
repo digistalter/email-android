@@ -28,15 +28,32 @@ object HtmlSafety {
         .addProtocols("a", "href", "http", "https", "mailto", "tel")
         .preserveRelativeLinks(false)
 
+    private const val MAX_INLINE_BYTES = 8 * 1024 * 1024
+
     data class Result(val html: String, val blockedImages: Boolean)
 
-    fun prepare(html: String, allowRemoteImages: Boolean, darkMode: Boolean): Result {
+    /**
+     * [inline] resolves a Content-ID to (mime type, bytes). WebView never asks for cid: URLs, so
+     * inline images are embedded as data: URLs instead.
+     */
+    fun prepare(
+        html: String,
+        allowRemoteImages: Boolean,
+        darkMode: Boolean,
+        inline: ((String) -> Pair<String, ByteArray>?)? = null,
+    ): Result {
         val dirty = Jsoup.parse(html)
         dirty.select("script, iframe, frame, object, embed, form, input, button, link, meta, base").remove()
         val clean: Document = Cleaner(safelist).clean(dirty)
         var blocked = false
         for (img in clean.select("img[src]")) {
             val src = img.attr("src")
+            if (src.startsWith("cid:", ignoreCase = true)) {
+                val found = inline?.invoke(src.substring(4))?.takeIf { it.second.size <= MAX_INLINE_BYTES }
+                if (found == null) img.removeAttr("src")
+                else img.attr("src", "data:${found.first};base64," + java.util.Base64.getEncoder().encodeToString(found.second))
+                continue
+            }
             if (src.startsWith("http", ignoreCase = true) && !allowRemoteImages) {
                 img.attr("data-src", src)
                 img.removeAttr("src")

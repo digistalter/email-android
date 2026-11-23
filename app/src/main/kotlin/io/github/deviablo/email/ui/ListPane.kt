@@ -51,6 +51,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -207,7 +208,7 @@ private fun SearchHeader(search: SearchState, vm: MailViewModel) {
     if (search.query.isNotBlank() || search.filters.isNotEmpty()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                stringResource(if (SearchFilter.THIS_FOLDER in search.filters) R.string.results_count_folder else R.string.results_count, search.results.size),
+                pluralStringResource(if (SearchFilter.THIS_FOLDER in search.filters) R.plurals.results_count_folder else R.plurals.results_count, search.results.size, search.results.size),
                 Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             if (search.serverBusy) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)

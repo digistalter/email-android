@@ -112,8 +112,14 @@
     <string name="filter_starred">Starred</string>
     <string name="filter_attachment">With attachment</string>
     <string name="filter_this_folder">Only this folder</string>
-    <string name="results_count">%1$d results in all folders</string>
-    <string name="results_count_folder">%1$d results in this folder</string>
+    <plurals name="results_count">
+        <item quantity="one">%1$d result in all folders</item>
+        <item quantity="other">%1$d results in all folders</item>
+    </plurals>
+    <plurals name="results_count_folder">
+        <item quantity="one">%1$d result in this folder</item>
+        <item quantity="other">%1$d results in this folder</item>
+    </plurals>
     <string name="searching_server">Searching on the server …</string>
     <string name="search_field">Search</string>
     <string name="clear">Clear</string>

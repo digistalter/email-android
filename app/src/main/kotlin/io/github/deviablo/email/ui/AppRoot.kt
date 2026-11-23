@@ -3,6 +3,7 @@ package io.github.deviablo.email.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,10 +20,13 @@ private sealed interface Screen {
 
 /** Top level: mail, composer, settings and account setup. Plain state instead of a navigation library. */
 @Composable
-fun AppRoot(vm: MailViewModel = viewModel(), initialCompose: ComposeRequest? = null) {
+fun AppRoot(vm: MailViewModel = viewModel(), initialCompose: ComposeRequest? = null, debugAccount: AccountForm? = null) {
     val state by vm.state.collectAsState()
     var screen by remember { mutableStateOf<Screen>(initialCompose?.let { Screen.Compose(it) } ?: Screen.Main) }
     if (!state.loaded) return
+    LaunchedEffect(debugAccount) {
+        if (debugAccount != null && state.accounts.none { it.address == debugAccount.address }) vm.addAccount(debugAccount)
+    }
     if (state.accounts.isEmpty() || state.showAccountForm) {
         AccountFormScreen(
             busy = state.formBusy, error = state.formError, canCancel = state.accounts.isNotEmpty(),

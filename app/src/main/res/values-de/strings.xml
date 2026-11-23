@@ -110,8 +110,14 @@
     <string name="filter_starred">Markiert</string>
     <string name="filter_attachment">Mit Anhang</string>
     <string name="filter_this_folder">Nur dieser Ordner</string>
-    <string name="results_count">%1$d Treffer in allen Ordnern</string>
-    <string name="results_count_folder">%1$d Treffer in diesem Ordner</string>
+    <plurals name="results_count">
+        <item quantity="one">%1$d Treffer in allen Ordnern</item>
+        <item quantity="other">%1$d Treffer in allen Ordnern</item>
+    </plurals>
+    <plurals name="results_count_folder">
+        <item quantity="one">%1$d Treffer in diesem Ordner</item>
+        <item quantity="other">%1$d Treffer in diesem Ordner</item>
+    </plurals>
     <string name="searching_server">Suche auf dem Server …</string>
     <string name="search_field">Suchen</string>
     <string name="clear">Leeren</string>

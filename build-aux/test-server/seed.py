@@ -2,9 +2,9 @@
 """Waits for the local GreenMail server and fills max.berger's mailbox with realistic sample mail:
 plain and HTML mails, a remote (tracking) image, an inline logo, attachments and a conversation
 with an own reply in "Sent"."""
+import email.utils
 import imaplib
 import os
-import smtplib
 import socket
 import ssl
 import time
@@ -14,9 +14,10 @@ from email.utils import formatdate, make_msgid
 HERE = os.path.dirname(os.path.abspath(__file__))
 TO = "max.berger@example.org"
 LOGO = bytes.fromhex(
-    "89504e470d0a1a0a0000000d49484452000000100000001008020000009091683600000019"
-    "49444154789c63e4b0ed3f03b5000b8c4a2a8c4a2a8c4a2a8c4a0a003b7c1d4b8e15ba3c0000"
-    "000049454e44ae426082")
+    "89504e470d0a1a0a0000000d494844520000006000000020080200000062a2ea030000007a4944415478daedd9b11140"
+    "30148061713a0a9b68ecc202a6b2806114b189c200064095438aef2f1529be7bef923ba11e62a1e74a0480000102946f"
+    "d5f5d33ef52927b6f36a82ac98000102f4d72df646c7d2e56fd18c9b09b262800001020408903e7e28debec14c901503"
+    "244080d20a7e3d9b20408000e5db09c8bf09de507873aa0000000049454e44ae426082")
 
 
 def wait_for(port: int) -> None:
@@ -65,10 +66,6 @@ inbox = [
     mail("Reisebüro <service@reise.example>", "Deine Buchung: Berlin → Hamburg", "Deine Tickets findest du im Anhang.",
          attachment=("tickets.pdf", b"%PDF-1.4 test"), minutes_ago=1600),
 ]
-with smtplib.SMTP("127.0.0.1", 3025) as smtp:  # noqa: SIM117
-    for m in inbox:
-        smtp.send_message(m, to_addrs=[TO])
-
 # Own reply in "Sent", so the conversation shows "Lena, Ich · 3".
 reply = EmailMessage()
 reply["From"], reply["To"], reply["Subject"] = "Max Berger <max.berger@example.org>", "lena.koch@example.org", "Re: Wohnungsübergabe am Samstag"
@@ -80,7 +77,11 @@ ctx = ssl.create_default_context(cafile=os.path.join(HERE, "..", "..", "app", "s
 ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
 with imaplib.IMAP4_SSL("localhost", 3993, ssl_context=ctx) as imap:
     imap.login(TO, "secret")
+    # APPEND instead of SMTP, so the server's arrival time matches the Date header.
+    for m in inbox:
+        when = email.utils.parsedate_to_datetime(m["Date"])
+        imap.append("INBOX", None, imaplib.Time2Internaldate(when), m.as_bytes())
     imap.create("Sent")
-    imap.append("Sent", "(\\Seen)", None, reply.as_bytes())
+    imap.append("Sent", "(\\Seen)", imaplib.Time2Internaldate(email.utils.parsedate_to_datetime(reply["Date"])), reply.as_bytes())
     imap.logout()
 print(f"{len(inbox)} Beispiel-Mails zugestellt, 1 Antwort in „Gesendet“.")

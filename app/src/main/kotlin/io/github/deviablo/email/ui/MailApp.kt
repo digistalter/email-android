@@ -62,6 +62,8 @@ import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.FolderRole
 import io.github.deviablo.email.data.StoredMessage
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import io.github.deviablo.email.data.MailRepository
 
 /** From this width on, list and conversation sit side by side (KONZEPT 4a). */
 private val TwoPaneMinWidth = 720.dp
@@ -91,8 +93,15 @@ fun MailApp(
     LaunchedEffect(Unit) {
         vm.snacks.collect { s ->
             val text = if (s.arg != null) context.getString(s.text, s.arg) else context.getString(s.text)
-            val result = snackbar.showSnackbar(text, actionLabel = if (s.undo != null) context.getString(R.string.undo) else null, duration = SnackbarDuration.Short)
-            if (result == SnackbarResult.ActionPerformed) vm.undo(s)
+            if (s.undo == null) {
+                snackbar.showSnackbar(text, duration = SnackbarDuration.Short)
+            } else {
+                // Visible exactly as long as the change can still be taken back.
+                val result = withTimeoutOrNull(MailRepository.UNDO_MS - 500) {
+                    snackbar.showSnackbar(text, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Indefinite)
+                }
+                if (result == SnackbarResult.ActionPerformed) vm.undo(s)
+            }
         }
     }
 
@@ -146,6 +155,12 @@ fun MailApp(
             }
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 80.dp))
         }
+    }
+
+    // Registered last, so it wins: back first closes the drawer, then leaves a folder for the inbox (Google apps).
+    val inboxId = state.folders.firstOrNull { it.role == FolderRole.INBOX }?.id
+    BackHandler(enabled = !drawerState.isClosed || (state.openConversation == null && state.search == null && state.selection.isEmpty() && inboxId != null && state.currentFolderId != inboxId)) {
+        if (!drawerState.isClosed) closeDrawer() else vm.openFolder(inboxId!!)
     }
 
     moveRequest?.let { convs ->
