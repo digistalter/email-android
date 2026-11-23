@@ -22,9 +22,10 @@ import io.github.deviablo.email.mail.imap.ServerSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -56,7 +57,15 @@ data class SearchState(
 )
 
 /** A short message at the bottom ("Gelöscht · Rückgängig"). */
-data class Snack(val text: Int, val arg: String? = null, val undo: UndoToken? = null, val spamOf: List<StoredMessage> = emptyList(), val wasSpam: Boolean = false)
+data class Snack(
+    val text: Int,
+    val arg: String? = null,
+    val undo: UndoToken? = null,
+    val spamOf: List<StoredMessage> = emptyList(),
+    val wasSpam: Boolean = false,
+    /** "Undo" reopens the composer with this. */
+    val reopen: ComposeRequest? = null,
+)
 
 data class MailUiState(
     val loaded: Boolean = false,
@@ -87,8 +96,10 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
     private val db = repo.db
     private val _state = MutableStateFlow(MailUiState())
     val state: StateFlow<MailUiState> = _state
-    private val _snacks = MutableSharedFlow<Snack>(extraBufferCapacity = 4)
-    val snacks: SharedFlow<Snack> = _snacks
+    // A channel, not a SharedFlow: snacks sent while the list is not on screen (e.g. from the
+    // composer) wait until it is.
+    private val _snacks = Channel<Snack>(Channel.BUFFERED)
+    val snacks: Flow<Snack> = _snacks.receiveAsFlow()
     private var searchJob: Job? = null
 
     init {
@@ -151,21 +162,21 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         launchIo {
             val token = repo.delete(convs.flatMap { it.inFolder })
             if (token != null) {
-                _snacks.tryEmit(if (convs.size == 1) Snack(R.string.deleted, undo = token) else Snack(R.string.deleted_many, convs.size.toString(), token))
+                _snacks.trySend(if (convs.size == 1) Snack(R.string.deleted, undo = token) else Snack(R.string.deleted_many, convs.size.toString(), token))
             }
         }
     }
 
     fun deleteMessage(m: StoredMessage) = launchIo {
         val token = repo.delete(listOf(m))
-        if (token != null) _snacks.tryEmit(Snack(R.string.deleted, undo = token))
+        if (token != null) _snacks.trySend(Snack(R.string.deleted, undo = token))
     }
 
     fun move(convs: List<Conversation>, target: Folder) {
         closeIfOpen(convs)
         launchIo {
             val token = repo.move(convs.flatMap { it.inFolder }, target)
-            _snacks.tryEmit(Snack(R.string.moved_to, target.name, token))
+            _snacks.trySend(Snack(R.string.moved_to, target.name, token))
         }
     }
 
@@ -174,7 +185,7 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         launchIo {
             val messages = convs.flatMap { it.inFolder }
             val token = repo.markSpam(messages, spam) ?: return@launchIo
-            _snacks.tryEmit(Snack(if (spam) R.string.marked_spam else R.string.moved_to, null, token, messages, spam))
+            _snacks.trySend(Snack(if (spam) R.string.marked_spam else R.string.moved_to, null, token, messages, spam))
         }
     }
 
@@ -237,6 +248,10 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- sync and accounts ---
 
+    fun snack(s: Snack) {
+        _snacks.trySend(s)
+    }
+
     fun syncActive() {
         val account = _state.value.activeAccount ?: return
         if (_state.value.syncing) return
@@ -244,7 +259,7 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(syncing = true, syncError = null) }
             val result = io { runCatching { repo.syncAccount(account) } }
             _state.update { it.copy(syncing = false, syncError = result.exceptionOrNull()?.let(::friendlyError)) }
-            if ((result.getOrNull()?.rejected ?: 0) > 0) _snacks.tryEmit(Snack(R.string.server_refused))
+            if ((result.getOrNull()?.rejected ?: 0) > 0) _snacks.trySend(Snack(R.string.server_refused))
             reload()
         }
     }

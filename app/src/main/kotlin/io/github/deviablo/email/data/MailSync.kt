@@ -75,7 +75,6 @@ class MailSync(
         try {
             client.login(account.username, password)
             var rejected = runOps(client, account)
-            outbox?.invoke(client)
 
             var remote = client.list().filter { it.selectable }
             var roles = FolderRoles.assign(remote)
@@ -85,6 +84,8 @@ class MailSync(
             }
             val ids = remote.associate { it.rawName to db.upsertFolder(account.id, it.rawName, it.name, roles.getValue(it.rawName)) }
             db.removeFoldersExcept(account.id, ids.values)
+            // After the folder list, so drafts and "Sent" are known; before the folders, so the result shows at once.
+            outbox?.invoke(client)
 
             val newMail = mutableListOf<StoredMessage>()
             val spamSenders = db.spamSenders(account.id)

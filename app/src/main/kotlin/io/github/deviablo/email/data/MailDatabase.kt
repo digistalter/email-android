@@ -422,33 +422,87 @@ class MailDatabase(context: Context) : SQLiteOpenHelper(context, "mail.db", null
     }
 
     // --- outbox ---
+    // Kinds as in the Linux app: "draft" (save, replacing older versions with the same Message-ID),
+    // "send" (SMTP, then a copy in "Sent"), "sent" (sent already; filing and draft removal left),
+    // "discard" (remove every saved version). Message-IDs are stored without <>.
 
-    data class OutboxItem(val id: Long, val accountId: Long, val kind: String, val messageId: String, val raw: ByteArray, val recipients: List<String>, val replacesDraftUid: Long?, val attempts: Int)
+    data class OutboxItem(val id: Long, val accountId: Long, val kind: String, val messageId: String, val raw: ByteArray, val recipients: List<String>, val attempts: Int, val lastError: String?)
 
-    fun enqueueOutbox(accountId: Long, kind: String, messageId: String, raw: ByteArray, recipients: List<String>, replacesDraftUid: Long?): Long {
-        // A newer version of the same draft replaces the waiting one.
-        if (kind == "draft") writableDatabase.delete("outbox", "account_id = ? AND kind = 'draft' AND message_id = ?", arrayOf(accountId.toString(), messageId))
-        return writableDatabase.insertOrThrow("outbox", null, ContentValues().apply {
-            put("account_id", accountId); put("kind", kind); put("message_id", messageId); put("raw", raw)
-            put("recipients", recipients.joinToString("\n")); replacesDraftUid?.let { put("replaces_draft_uid", it) }
-        })
+    fun queueDraft(accountId: Long, messageId: String, raw: ByteArray) = queue(accountId, "draft", messageId, raw, emptyList())
+
+    /** Waiting drafts of the message are dropped and its saved versions leave the drafts list at once. */
+    fun queueSend(accountId: Long, messageId: String, raw: ByteArray, recipients: List<String>) = queue(accountId, "send", messageId, raw, recipients)
+
+    fun queueDiscard(accountId: Long, messageId: String) = queue(accountId, "discard", messageId, ByteArray(0), emptyList())
+
+    private fun queue(accountId: Long, kind: String, messageId: String, raw: ByteArray, recipients: List<String>): Long {
+        var id = 0L
+        writableDatabase.inTransaction {
+            delete("outbox", "account_id = ? AND message_id = ? AND kind IN ('draft', 'discard')", arrayOf(accountId.toString(), messageId))
+            id = insertOrThrow("outbox", null, ContentValues().apply {
+                put("account_id", accountId); put("kind", kind); put("message_id", messageId); put("raw", raw)
+                put("recipients", recipients.joinToString("\n"))
+            })
+        }
+        if (kind != "draft") hideDrafts(accountId, messageId)
+        return id
+    }
+
+    /** Local copies of a draft in the drafts folder; the server copies go with the outbox. */
+    fun hideDrafts(accountId: Long, messageId: String) {
+        val ids = readableDatabase.rawQuery(
+            "SELECT m.id FROM messages m JOIN folders f ON f.id = m.folder_id WHERE m.account_id = ? AND f.role = ? AND m.message_id = ?",
+            arrayOf(accountId.toString(), FolderRole.DRAFTS.name, "<$messageId>"),
+        ).use { c -> c.list { getLong(0) } }
+        deleteRows(ids)
     }
 
     fun outbox(accountId: Long, now: Long): List<OutboxItem> = readableDatabase.rawQuery(
-        "SELECT id, account_id, kind, message_id, raw, recipients, replaces_draft_uid, attempts FROM outbox WHERE account_id = ? AND next_try <= ? ORDER BY id",
+        "SELECT id, account_id, kind, message_id, raw, recipients, attempts, last_error FROM outbox WHERE account_id = ? AND next_try <= ? ORDER BY id",
         arrayOf(accountId.toString(), now.toString()),
-    ).use { c -> c.list { OutboxItem(getLong(0), getLong(1), getString(2), getString(3), getBlob(4), getString(5).split('\n').filter { it.isNotBlank() }, if (isNull(6)) null else getLong(6), getInt(7)) } }
+    ).use { c -> c.list { OutboxItem(getLong(0), getLong(1), getString(2), getString(3), getBlob(4), getString(5).split('\n').filter { it.isNotBlank() }, getInt(6), getStringOrNull(7)) } }
 
     fun outboxDone(id: Long) {
         writableDatabase.delete("outbox", "id = ?", arrayOf(id.toString()))
+    }
+
+    fun outboxKind(id: Long, kind: String) {
+        writableDatabase.execSQL("UPDATE outbox SET kind = ?, next_try = 0, last_error = NULL WHERE id = ?", arrayOf<Any?>(kind, id))
     }
 
     fun outboxRetry(id: Long, nextTry: Long, error: String?) {
         writableDatabase.execSQL("UPDATE outbox SET attempts = attempts + 1, next_try = ?, last_error = ? WHERE id = ?", arrayOf<Any?>(nextTry, error, id))
     }
 
+    /** Mails still waiting to go out (all accounts or one). */
+    fun unsentCount(accountId: Long? = null): Int = readableDatabase.rawQuery(
+        "SELECT COUNT(*) FROM outbox WHERE kind = 'send'" + if (accountId != null) " AND account_id = $accountId" else "", null,
+    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+
+    fun hasOutbox(accountId: Long): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM outbox WHERE account_id = ? LIMIT 1", arrayOf(accountId.toString()),
+    ).use { it.moveToFirst() }
+
     fun pendingDraftsCount(accountId: Long): Int =
         readableDatabase.rawQuery("SELECT COUNT(*) FROM outbox WHERE account_id = ? AND kind = 'draft'", arrayOf(accountId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+
+    /** Addresses for the recipient suggestions: senders and recipients of this account's mail, most frequent first. */
+    fun knownAddresses(accountId: Long): List<Pair<String, String>> {
+        val counts = HashMap<String, Pair<String, Int>>()
+        fun add(name: String, email: String) {
+            val key = email.trim().lowercase()
+            if (key.isEmpty() || !key.contains('@')) return
+            val old = counts[key]
+            counts[key] = (if (old != null && old.first.isNotBlank()) old.first else name.trim()) to ((old?.second ?: 0) + 1)
+        }
+        readableDatabase.rawQuery("SELECT from_name, from_address, recipients FROM messages WHERE account_id = ? ORDER BY date_ms DESC LIMIT 5000", arrayOf(accountId.toString())).use { c ->
+            while (c.moveToNext()) {
+                add(c.getString(0), c.getString(1))
+                io.github.deviablo.email.mail.Compose.parseAddresses(c.getString(2)).first.forEach { add(it.name, it.email) }
+            }
+        }
+        return counts.entries.sortedByDescending { it.value.second }.map { it.value.first to it.key }
+    }
 
     private inline fun <T> Cursor.list(row: Cursor.() -> T): List<T> = buildList { while (moveToNext()) add(row()) }
     private fun Cursor.getStringOrNull(i: Int): String? = if (isNull(i)) null else getString(i)

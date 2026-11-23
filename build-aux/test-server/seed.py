@@ -12,6 +12,8 @@ from email.message import EmailMessage
 from email.utils import formatdate, make_msgid
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+SMTP_PORT = int(os.environ.get("SEED_SMTP_PORT", "3025"))
+IMAP_PORT = int(os.environ.get("SEED_IMAP_PORT", "3993"))
 TO = "max.berger@example.org"
 LOGO = bytes.fromhex(
     "89504e470d0a1a0a0000000d494844520000006000000020080200000062a2ea030000007a4944415478daedd9b11140"
@@ -50,7 +52,7 @@ def mail(sender, subject, text, html=None, attachment=None, reply_to=None, msgid
 
 
 # Only SMTP is probed: a bare connect to the TLS port makes GreenMail log a scary stack trace.
-wait_for(3025)
+wait_for(SMTP_PORT)
 first = "<wohnung-1@example.org>"
 mine = "<wohnung-2@example.org>"
 inbox = [
@@ -75,7 +77,7 @@ reply.set_content("Samstag passt. Um wie viel Uhr?")
 ctx = ssl.create_default_context(cafile=os.path.join(HERE, "..", "..", "app", "src", "test", "resources", "test_ca.pem"))
 # The keytool-made test CA has no key-usage extension, which Python 3.13+ insists on in strict mode.
 ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
-with imaplib.IMAP4_SSL("localhost", 3993, ssl_context=ctx) as imap:
+with imaplib.IMAP4_SSL("localhost", IMAP_PORT, ssl_context=ctx) as imap:
     imap.login(TO, "secret")
     # APPEND instead of SMTP, so the server's arrival time matches the Date header.
     for m in inbox:

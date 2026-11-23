@@ -2,7 +2,12 @@
 package io.github.deviablo.email.data
 
 import android.content.Context
+import io.github.deviablo.email.mail.Compose
+import io.github.deviablo.email.mail.Draft
+import io.github.deviablo.email.mail.Mailbox
+import io.github.deviablo.email.mail.MessageWriter
 import io.github.deviablo.email.mail.Mime
+import io.github.deviablo.email.mail.Original
 import io.github.deviablo.email.mail.ParsedMessage
 import io.github.deviablo.email.mail.imap.ImapClient
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -28,7 +33,10 @@ class MailRepository private constructor(context: Context) {
     /** Emits an account id whenever its data changed (sync, action, background). */
     val changes: SharedFlow<Long> = _changes
 
-    var outboxRunner: ((Account, ImapClient) -> Unit)? = null
+    private val _sendEvents = MutableSharedFlow<SendEvent>(extraBufferCapacity = 8)
+    /** Sent / could not send, for the snackbar while the app is open. */
+    val sendEvents: SharedFlow<SendEvent> = _sendEvents
+    private val outbox = OutboxProcessor(db, { _sendEvents.tryEmit(it) })
 
     companion object {
         const val UNDO_MS = 8_000L
@@ -49,7 +57,8 @@ class MailRepository private constructor(context: Context) {
     fun syncAccount(account: Account): SyncResult {
         val lock = synchronized(syncLocks) { syncLocks.getOrPut(account.id) { Any() } }
         synchronized(lock) {
-            val result = sync.sync(account, password(account.id)) { client -> outboxRunner?.invoke(account, client) }
+            val password = password(account.id)
+            val result = sync.sync(account, password) { client -> outbox.process(account, password, client) }
             autoEmpty(account)
             changed(account.id)
             return result
@@ -194,6 +203,43 @@ class MailRepository private constructor(context: Context) {
     }
 
     fun emptyFolder(folder: Folder) = deletePermanently(db.messagesInFolder(folder.id, Int.MAX_VALUE))
+
+    // --- writing ---
+
+    private fun sender(account: Account) = Mailbox(account.displayName, account.address)
+
+    /** Saves a version of a draft; the server copy follows with the next sync. */
+    fun saveDraft(account: Account, draft: Draft) {
+        db.queueDraft(account.id, draft.messageId, MessageWriter.build(sender(account), draft, System.currentTimeMillis()))
+        changed(account.id)
+    }
+
+    /** Puts the mail into the outbox; it leaves with the next sync, even after the app was closed. */
+    fun send(account: Account, draft: Draft) {
+        db.queueSend(account.id, draft.messageId, MessageWriter.build(sender(account), draft, System.currentTimeMillis()), draft.recipients())
+        changed(account.id)
+    }
+
+    fun discardDraft(account: Account, messageId: String) {
+        db.queueDiscard(account.id, messageId)
+        changed(account.id)
+    }
+
+    /** The original of a reply or forward, or a saved draft, read from the full message (blocking). */
+    fun original(m: StoredMessage): Original? {
+        loadMessage(m) ?: return null
+        return bodies.get(m.id)?.let { Compose.readOriginal(it) }
+    }
+
+    fun draftFrom(m: StoredMessage, account: Account): Draft? {
+        loadMessage(m) ?: return null
+        return bodies.get(m.id)?.let { Compose.readDraft(it, account.address) }
+    }
+
+    fun knownAddresses(account: Account): List<Mailbox> {
+        val own = db.accounts().map { it.address.lowercase() }.toSet()
+        return db.knownAddresses(account.id).filter { it.second !in own }.map { Mailbox(it.first, it.second) }
+    }
 
     // --- search ---
 

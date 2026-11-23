@@ -77,6 +77,24 @@ object HtmlSafety {
         return Result(page(clean.body().html(), darkMode, hasOwnBackground(clean)), blocked)
     }
 
+    /**
+     * Mail HTML for the composer (quotes, forwards, drafts): cleaned like [prepare], inline
+     * pictures as data: URLs so they are sent again. Remote pictures stay as they are; the editor
+     * never loads them.
+     */
+    fun editorBody(html: String, inline: ((String) -> Pair<String, ByteArray>?)? = null): String {
+        val dirty = Jsoup.parse(html)
+        dirty.select("script, iframe, frame, object, embed, form, input, button, link, meta, base, title").remove()
+        val clean: Document = Cleaner(safelist).clean(dirty)
+        for (img in clean.select("img[src^=cid:]")) {
+            val found = inline?.invoke(img.attr("src").substring(4))?.takeIf { it.second.size <= MAX_INLINE_BYTES }
+            if (found == null) img.remove()
+            else img.attr("src", "data:${found.first};base64," + java.util.Base64.getEncoder().encodeToString(found.second))
+        }
+        clean.outputSettings().prettyPrint(false)
+        return clean.body().html()
+    }
+
     /** Plain text mails: escaped, links made clickable, shown in the app's text colours. */
     fun fromText(text: String, darkMode: Boolean): String {
         val escaped = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

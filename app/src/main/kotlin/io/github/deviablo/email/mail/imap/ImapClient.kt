@@ -105,7 +105,7 @@ class ImapClient private constructor(
         }
 
         /** Wraps a connected socket in TLS and checks that the certificate belongs to [host]. */
-        private fun secure(plain: Socket, factory: SSLSocketFactory, verifier: HostnameVerifier?, host: String): SSLSocket {
+        internal fun secure(plain: Socket, factory: SSLSocketFactory, verifier: HostnameVerifier?, host: String): SSLSocket {
             val tls = factory.createSocket(plain, host, plain.port, true) as SSLSocket
             tls.soTimeout = TIMEOUT_MS
             tls.sslParameters = tls.sslParameters.apply { endpointIdentificationAlgorithm = "HTTPS" }

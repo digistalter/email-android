@@ -61,16 +61,30 @@ import io.github.deviablo.email.data.Account
 import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.FolderRole
 import io.github.deviablo.email.data.StoredMessage
+import io.github.deviablo.email.data.SendEvent
+import io.github.deviablo.email.mail.Draft
+import io.github.deviablo.email.mail.Original
+import io.github.deviablo.email.mail.ReplyKind
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import io.github.deviablo.email.data.MailRepository
 
 /** From this width on, list and conversation sit side by side (KONZEPT 4a). */
-private val TwoPaneMinWidth = 720.dp
+internal val TwoPaneMinWidth = 720.dp
 private val ListPaneWidth = 320.dp
 
 /** What the composer is asked to open. */
-data class ComposeRequest(val reply: StoredMessage? = null, val mode: ReplyMode? = null, val draft: StoredMessage? = null)
+data class ComposeRequest(
+    val reply: StoredMessage? = null,
+    val mode: ReplyMode? = null,
+    val draft: StoredMessage? = null,
+    /** Reopening after "Undo": the text as it was, and for replies the original. */
+    val restore: Draft? = null,
+    val restoreKind: ReplyKind? = null,
+    val restoreOriginal: Original? = null,
+) {
+    val isReply get() = reply != null || restoreKind != null
+}
 
 @Composable
 fun MailApp(
@@ -78,6 +92,8 @@ fun MailApp(
     onCompose: (ComposeRequest) -> Unit,
     onSettings: () -> Unit,
     onAddAccount: () -> Unit,
+    /** On wide screens a reply is written in the right pane, next to the list (wireframe). */
+    replyPane: (@Composable () -> Unit)? = null,
 ) {
     val state by vm.state.collectAsState()
     if (!state.loaded) return
@@ -93,7 +109,10 @@ fun MailApp(
     LaunchedEffect(Unit) {
         vm.snacks.collect { s ->
             val text = if (s.arg != null) context.getString(s.text, s.arg) else context.getString(s.text)
-            if (s.undo == null) {
+            if (s.reopen != null) {
+                val result = snackbar.showSnackbar(text, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Long)
+                if (result == SnackbarResult.ActionPerformed) onCompose(s.reopen)
+            } else if (s.undo == null) {
                 snackbar.showSnackbar(text, duration = SnackbarDuration.Short)
             } else {
                 // Visible exactly as long as the change can still be taken back.
@@ -101,6 +120,21 @@ fun MailApp(
                     snackbar.showSnackbar(text, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Indefinite)
                 }
                 if (result == SnackbarResult.ActionPerformed) vm.undo(s)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        vm.repo.sendEvents.collect { e ->
+            when (e) {
+                is SendEvent.Sent -> vm.snack(Snack(R.string.sent))
+                is SendEvent.Failed -> vm.snack(
+                    when {
+                        e.permanent -> Snack(R.string.send_failed_permanent, e.reason)
+                        e.login -> Snack(R.string.send_failed_login)
+                        else -> Snack(R.string.send_failed_retry)
+                    },
+                )
             }
         }
     }
@@ -138,7 +172,8 @@ fun MailApp(
                             ListPane(state, vm, conversation?.key, onOpen = open, onMenu = openMenu, onCompose = { onCompose(ComposeRequest()) }, onMoveRequest = { moveRequest = it })
                         }
                         Pane(Modifier.weight(1f)) {
-                            if (conversation == null) EmptyState(stringResource(R.string.nothing_selected_title), stringResource(R.string.nothing_selected_body))
+                            if (replyPane != null) replyPane()
+                            else if (conversation == null) EmptyState(stringResource(R.string.nothing_selected_title), stringResource(R.string.nothing_selected_body))
                             else ReaderPane(conversation, state, vm, dark, showBack = false, onBack = { vm.openConversation(null) }, onReply = reply, onMoveRequest = { moveRequest = it })
                         }
                     }

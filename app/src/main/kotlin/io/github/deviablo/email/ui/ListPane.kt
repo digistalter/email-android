@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import io.github.deviablo.email.R
+import io.github.deviablo.email.mail.Compose
 import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.FolderRole
 import io.github.deviablo.email.data.SearchFilter
@@ -294,7 +295,11 @@ private fun ConversationRow(c: Conversation, state: MailUiState, selected: Boole
     val strong = if (c.unread) FontWeight.Bold else FontWeight.Normal
     val textColor = if (c.unread) colors.onSurface else colors.onSurfaceVariant
     val own = state.accounts.map { it.address.lowercase() }.toSet()
-    val senders = Threading.senders(c, own, stringResource(R.string.me_sender))
+    // In "Sent" and "Drafts" the people it goes to matter, not oneself (as in Google's apps).
+    val outgoing = state.currentFolder?.role.let { it == FolderRole.SENT || it == FolderRole.DRAFTS } && state.search == null
+    val recipients = if (outgoing) Compose.parseAddresses(c.newest.recipients).first else emptyList()
+    val senders = if (outgoing) stringResource(R.string.to_recipients, recipients.joinToString(", ") { it.short() }.ifEmpty { "…" })
+    else Threading.senders(c, own, stringResource(R.string.me_sender))
     val yesterday = stringResource(R.string.yesterday)
     val folderTag = if (state.search != null) state.folder(c.inFolder.first().folderId) else null
     Row(
@@ -312,7 +317,7 @@ private fun ConversationRow(c: Conversation, state: MailUiState, selected: Boole
                 contentAlignment = Alignment.Center,
             ) { if (selected) Icon(Symbols.Check, null, tint = colors.onPrimary) }
         } else {
-            Avatar(c.newest.fromName.ifBlank { c.newest.fromAddress }, unreadDot = c.unread)
+            Avatar(recipients.firstOrNull()?.short() ?: c.newest.fromName.ifBlank { c.newest.fromAddress }, unreadDot = c.unread)
         }
         Column(Modifier.padding(start = 16.dp).weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
