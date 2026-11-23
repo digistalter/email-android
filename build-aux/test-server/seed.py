@@ -1,19 +1,22 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Waits for the local GreenMail server and delivers a handful of sample mails to max.berger."""
+"""Waits for the local GreenMail server and fills max.berger's mailbox with realistic sample mail:
+plain and HTML mails, a remote (tracking) image, an inline logo, attachments and a conversation
+with an own reply in "Sent"."""
+import imaplib
+import os
 import smtplib
 import socket
+import ssl
 import time
 from email.message import EmailMessage
-from email.utils import formatdate
+from email.utils import formatdate, make_msgid
 
+HERE = os.path.dirname(os.path.abspath(__file__))
 TO = "max.berger@example.org"
-MAILS = [
-    ("Lena Koch <lena.koch@example.org>", "Wohnungsübergabe am Samstag", "Hallo Max, passt dir Samstag?", None),
-    ("Sophie Wagner <sophie@example.net>", "Geburtstagsessen – wer bringt den Kuchen?", "Wer bringt den Kuchen mit?", None),
-    ("Jonas Weber <jonas@example.net>", "Fotos vom Wochenende", "Hier sind die Fotos.", ("foto.jpg", b"\xff\xd8\xff\xe0 test")),
-    ("Stadtbücherei <info@buecherei.example>", "Deine Ausleihe endet in 3 Tagen", "Bitte denke an die Rückgabe.", None),
-    ("Reisebüro <service@reise.example>", "Deine Buchung: Berlin → Hamburg", "Deine Tickets findest du im Anhang.", ("tickets.pdf", b"%PDF-1.4 test")),
-]
+LOGO = bytes.fromhex(
+    "89504e470d0a1a0a0000000d49484452000000100000001008020000009091683600000019"
+    "49444154789c63e4b0ed3f03b5000b8c4a2a8c4a2a8c4a2a8c4a0a003b7c1d4b8e15ba3c0000"
+    "000049454e44ae426082")
 
 
 def wait_for(port: int) -> None:
@@ -26,16 +29,58 @@ def wait_for(port: int) -> None:
     raise SystemExit(f"GreenMail did not open port {port}")
 
 
+def mail(sender, subject, text, html=None, attachment=None, reply_to=None, msgid=None, minutes_ago=0):
+    m = EmailMessage()
+    m["From"], m["To"], m["Subject"] = sender, TO, subject
+    m["Date"] = formatdate(time.time() - minutes_ago * 60, localtime=True)
+    m["Message-ID"] = msgid or make_msgid(domain="example.org")
+    if reply_to:
+        m["In-Reply-To"] = reply_to
+        m["References"] = reply_to
+    m.set_content(text)
+    if html:
+        m.add_alternative(html, subtype="html")
+        if "cid:logo" in html:
+            m.get_payload()[1].add_related(LOGO, "image", "png", cid="<logo@example.org>")
+    if attachment:
+        name, data = attachment
+        m.add_attachment(data, maintype="application", subtype="octet-stream", filename=name)
+    return m
+
+
 # Only SMTP is probed: a bare connect to the TLS port makes GreenMail log a scary stack trace.
-# Both ports are opened together at start-up.
 wait_for(3025)
-with smtplib.SMTP("127.0.0.1", 3025) as smtp:
-    for sender, subject, text, attachment in MAILS:
-        msg = EmailMessage()
-        msg["From"], msg["To"], msg["Subject"], msg["Date"] = sender, TO, subject, formatdate(localtime=True)
-        msg.set_content(text)
-        if attachment:
-            name, data = attachment
-            msg.add_attachment(data, maintype="application", subtype="octet-stream", filename=name)
-        smtp.send_message(msg)
-print(f"{len(MAILS)} Beispiel-Mails zugestellt.")
+first = "<wohnung-1@example.org>"
+mine = "<wohnung-2@example.org>"
+inbox = [
+    mail("Lena Koch <lena.koch@example.org>", "Wohnungsübergabe am Samstag", "Hallo Max, passt dir Samstag?", msgid=first, minutes_ago=600),
+    mail("Lena Koch <lena.koch@example.org>", "Re: Wohnungsübergabe am Samstag", "Perfekt, danke! Bis Samstag um 10.", reply_to=mine, minutes_ago=5),
+    mail("Sophie Wagner <sophie@example.net>", "Geburtstagsessen – wer bringt den Kuchen?", "Wer bringt den Kuchen mit?", minutes_ago=60),
+    mail("Jonas Weber <jonas@example.net>", "Fotos vom Wochenende", "Hier sind die Fotos.", attachment=("foto.jpg", b"\xff\xd8\xff\xe0 test"), minutes_ago=120),
+    mail("Stadtbücherei <info@buecherei.example>", "Deine Ausleihe endet in 3 Tagen", "Bitte denke an die Rückgabe.",
+         html="<h2 style='color:#0b57d0'>Stadtbücherei</h2><p>Deine Ausleihe <b>„Der Schwarm“</b> endet in 3 Tagen.</p>"
+              "<p><img src='https://tracker.example/pixel.gif' width='1' height='1'><img src='cid:logo@example.org' alt='Logo'></p>"
+              "<p><a href='https://buecherei.example/konto'>Zum Konto</a> · <a href='https://buecherei.example@evil.example/'>Verlängern</a></p>",
+         minutes_ago=1500),
+    mail("Reisebüro <service@reise.example>", "Deine Buchung: Berlin → Hamburg", "Deine Tickets findest du im Anhang.",
+         attachment=("tickets.pdf", b"%PDF-1.4 test"), minutes_ago=1600),
+]
+with smtplib.SMTP("127.0.0.1", 3025) as smtp:  # noqa: SIM117
+    for m in inbox:
+        smtp.send_message(m, to_addrs=[TO])
+
+# Own reply in "Sent", so the conversation shows "Lena, Ich · 3".
+reply = EmailMessage()
+reply["From"], reply["To"], reply["Subject"] = "Max Berger <max.berger@example.org>", "lena.koch@example.org", "Re: Wohnungsübergabe am Samstag"
+reply["Date"] = formatdate(time.time() - 300 * 60, localtime=True)
+reply["Message-ID"], reply["In-Reply-To"], reply["References"] = mine, first, first
+reply.set_content("Samstag passt. Um wie viel Uhr?")
+ctx = ssl.create_default_context(cafile=os.path.join(HERE, "..", "..", "app", "src", "test", "resources", "test_ca.pem"))
+# The keytool-made test CA has no key-usage extension, which Python 3.13+ insists on in strict mode.
+ctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
+with imaplib.IMAP4_SSL("localhost", 3993, ssl_context=ctx) as imap:
+    imap.login(TO, "secret")
+    imap.create("Sent")
+    imap.append("Sent", "(\\Seen)", None, reply.as_bytes())
+    imap.logout()
+print(f"{len(inbox)} Beispiel-Mails zugestellt, 1 Antwort in „Gesendet“.")

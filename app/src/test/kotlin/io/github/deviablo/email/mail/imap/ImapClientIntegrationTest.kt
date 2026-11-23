@@ -30,8 +30,8 @@ class ImapClientIntegrationTest {
     // and offers no AUTH=PLAIN, so the UTF-8 path cannot be checked against it.)
     private val password = "ge\"heim\\ 123"
 
-    private val smtp = ServerSetup(ServerSetupTest.SMTP.port, "127.0.0.1", ServerSetup.PROTOCOL_SMTP)
-    private val imaps = ServerSetup(ServerSetupTest.IMAPS.port, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)
+    private val smtp = ServerSetup(13025, "127.0.0.1", ServerSetup.PROTOCOL_SMTP)
+    private val imaps = ServerSetup(13993, "127.0.0.1", ServerSetup.PROTOCOL_IMAPS)
 
     private fun resource(name: String) = File(javaClass.classLoader!!.getResource(name)!!.toURI())
 
@@ -82,6 +82,41 @@ class ImapClientIntegrationTest {
             assertFalse(first.seen)
             assertFalse(first.hasAttachment)
             assertTrue(headers.getValue("Fotos").hasAttachment)
+            client.logout()
+        }
+    }
+
+    @Test fun changeFlagsMoveDeleteAppendAndFetchRaw() {
+        GreenMailUtil.sendTextEmail("alice@localhost", "lena@localhost", "Eins", "Text eins", smtp)
+        GreenMailUtil.sendTextEmail("alice@localhost", "lena@localhost", "Zwei", "Text zwei", smtp)
+        greenMail.waitForIncomingEmail(5_000, 2)
+        ImapClient.connect(settings(), trustingTestCa, null).use { client ->
+            client.login("alice", password)
+            client.create("Trash")
+            client.select("INBOX", readOnly = false)
+            val uids = client.uidSearch("ALL").sorted()
+            assertEquals(2, uids.size)
+
+            client.uidStore(listOf(uids[0]), add = true, flag = "\\Seen")
+            client.uidStore(listOf(uids[0]), add = true, flag = "\\Flagged")
+            val flags = client.uidFetchFlags(null)
+            assertTrue(flags.getValue(uids[0]).seen && flags.getValue(uids[0]).flagged)
+            assertFalse(flags.getValue(uids[1]).seen)
+
+            val raw = String(client.uidFetchRaw(uids[1])!!, Charsets.UTF_8)
+            assertTrue(raw.contains("Subject: Zwei") && raw.contains("Text zwei"))
+            assertFalse(client.uidFetchFlags(listOf(uids[1])).getValue(uids[1]).seen) // BODY.PEEK leaves it unread
+
+            client.uidMove(listOf(uids[0]), "Trash")
+            assertEquals(listOf(uids[1]), client.uidSearch("ALL"))
+            client.uidDelete(listOf(uids[1]))
+            assertTrue(client.uidSearch("ALL").isEmpty())
+
+            client.select("Trash", readOnly = false)
+            assertEquals(1, client.uidSearch("ALL").size)
+            client.append("Trash", "\\Seen", "Subject: Entwurf\r\n\r\nHallo\r\n".toByteArray())
+            assertEquals(2, client.uidSearch("ALL").size)
+            assertEquals(1, client.uidSearchText("Entwurf").size)
             client.logout()
         }
     }

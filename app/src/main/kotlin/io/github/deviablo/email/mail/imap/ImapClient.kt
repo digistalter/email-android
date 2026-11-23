@@ -33,9 +33,11 @@ data class MessageHeader(
     val uid: Long,
     val subject: String,
     val from: Address?,
+    val recipients: List<Address>,
     val date: Date?,
     val messageId: String?,
     val inReplyTo: String?,
+    val references: List<String>,
     val seen: Boolean,
     val flagged: Boolean,
     val hasAttachment: Boolean,
@@ -171,11 +173,12 @@ class ImapClient private constructor(
         ImapFolder(raw, if (utf8) raw else ModifiedUtf7.decode(raw), delimiter, attributes)
     }
 
-    fun select(rawName: String): SelectedFolder {
+    /** EXAMINE (read-only) for reading, SELECT when flags or messages are changed. */
+    fun select(rawName: String, readOnly: Boolean = true): SelectedFolder {
         var exists = 0L
         var uidValidity: Long? = null
         var uidNext: Long? = null
-        for (r in commandWithStrings("EXAMINE", rawName)) {
+        for (r in commandWithStrings(if (readOnly) "EXAMINE" else "SELECT", rawName)) {
             if (r.kind == "EXISTS") exists = r.number ?: 0
             if (r.kind == "OK") {
                 responseCode(r.text, "UIDVALIDITY")?.toLongOrNull()?.let { uidValidity = it }
@@ -207,9 +210,140 @@ class ImapClient private constructor(
 
     fun uidFetchHeaders(uids: List<Long>): List<MessageHeader> {
         if (uids.isEmpty()) return emptyList()
-        return command("UID FETCH ${uids.joinToString(",")} (UID FLAGS INTERNALDATE ENVELOPE BODYSTRUCTURE)")
+        return command("UID FETCH ${uidSet(uids)} (UID FLAGS INTERNALDATE ENVELOPE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (REFERENCES)])")
             .filter { it.kind == "FETCH" }
             .mapNotNull { parseFetch(it.values.firstOrNull()?.items().orEmpty()) }
+    }
+
+    val isGmail get() = "X-GM-EXT-1" in capabilities
+    val canMove get() = "MOVE" in capabilities
+    val hasUidPlus get() = "UIDPLUS" in capabilities
+
+    fun uidSearch(criteria: String): List<Long> = command("UID SEARCH $criteria")
+        .filter { it.kind == "SEARCH" }
+        .flatMap { r -> r.values.mapNotNull { it.text()?.toLongOrNull() } }
+
+    /** Server-side full-text search; [term] must be ASCII (non-ASCII would need CHARSET literals). */
+    fun uidSearchText(term: String): List<Long> {
+        val quoted = "\"" + term.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        return uidSearch("TEXT $quoted")
+    }
+
+    data class Flags(val seen: Boolean, val flagged: Boolean)
+
+    fun uidFetchFlags(uids: List<Long>?): Map<Long, Flags> {
+        if (uids != null && uids.isEmpty()) return emptyMap()
+        return command("UID FETCH ${uids?.let(::uidSet) ?: "1:*"} (UID FLAGS)").filter { it.kind == "FETCH" }.mapNotNull { r ->
+            val map = r.values.firstOrNull()?.items().orEmpty().chunked(2).filter { it.size == 2 }.associate { (k, v) -> (k.text()?.uppercase() ?: "") to v }
+            val uid = map["UID"]?.text()?.toLongOrNull() ?: return@mapNotNull null
+            val flags = map["FLAGS"]?.items()?.mapNotNull { it.text()?.lowercase() }.orEmpty()
+            uid to Flags("\\seen" in flags, "\\flagged" in flags)
+        }.toMap()
+    }
+
+    /** The complete message, byte for byte, without setting \Seen. */
+    fun uidFetchRaw(uid: Long): ByteArray? = command("UID FETCH $uid (UID BODY.PEEK[])").filter { it.kind == "FETCH" }.firstNotNullOfOrNull { r ->
+        val items = r.values.firstOrNull()?.items().orEmpty()
+        items.chunked(2).firstOrNull { it.size == 2 && it[0].text()?.uppercase()?.startsWith("BODY[") == true }?.get(1)?.bytes()
+    }
+
+    fun uidStore(uids: List<Long>, add: Boolean, flag: String) {
+        if (uids.isEmpty()) return
+        command("UID STORE ${uidSet(uids)} ${if (add) "+" else "-"}FLAGS.SILENT ($flag)")
+    }
+
+    fun uidMove(uids: List<Long>, targetRaw: String) {
+        if (uids.isEmpty()) return
+        if (canMove) {
+            commandWithStrings("UID MOVE ${uidSet(uids)}", targetRaw)
+        } else {
+            commandWithStrings("UID COPY ${uidSet(uids)}", targetRaw)
+            uidDelete(uids)
+        }
+    }
+
+    /**
+     * Permanently removes exactly [uids]. Without UIDPLUS, EXPUNGE would also remove mails another
+     * program merely marked as deleted; those are unmarked for the moment and marked again (Linux app).
+     */
+    fun uidDelete(uids: List<Long>) {
+        if (uids.isEmpty()) return
+        uidStore(uids, add = true, flag = "\\Deleted")
+        if (hasUidPlus) {
+            command("UID EXPUNGE ${uidSet(uids)}")
+        } else {
+            val others = uidSearch("DELETED").filter { it !in uids }
+            uidStore(others, add = false, flag = "\\Deleted")
+            command("EXPUNGE")
+            uidStore(others, add = true, flag = "\\Deleted")
+        }
+    }
+
+    fun create(rawName: String) {
+        commandWithStrings("CREATE", rawName)
+    }
+
+    /** Stores a complete message in a folder (drafts, sent copies). Returns the new UID if the server says so. */
+    fun append(rawFolder: String, flags: String, message: ByteArray): Long? {
+        val tag = nextTag()
+        val literalPlus = "LITERAL+" in capabilities
+        val name = if (isQuotable(rawFolder)) "\"" + rawFolder.replace("\\", "\\\\").replace("\"", "\\\"") + "\"" else rawFolder
+        send("$tag APPEND $name ($flags) {${message.size}${if (literalPlus) "+" else ""}}\r\n")
+        if (!literalPlus) {
+            val cont = reader.readResponse()
+            if (cont.tag != "+") throw ImapCommandException(cont.text)
+        }
+        output.write(message)
+        send("\r\n")
+        val tagged = collect(tag).last()
+        return responseCode(tagged.text, "APPENDUID")?.split(' ')?.getOrNull(1)?.toLongOrNull()
+    }
+
+    /**
+     * Waits for changes in the selected folder. Returns true if the server reported new mail or
+     * other changes, false after [timeoutMs] without news. Needs the IDLE capability.
+     */
+    fun idle(timeoutMs: Int, stopped: () -> Boolean = { false }): Boolean {
+        val tag = nextTag()
+        send("$tag IDLE\r\n")
+        val cont = reader.readResponse()
+        if (cont.tag != "+") throw ImapCommandException(cont.text)
+        val previous = socket.soTimeout
+        socket.soTimeout = 15_000
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var changed = false
+        try {
+            while (!changed && !stopped() && System.currentTimeMillis() < deadline) {
+                try {
+                    val r = reader.readResponse()
+                    if (r.kind == "EXISTS" || r.kind == "EXPUNGE" || r.kind == "FETCH" || r.kind == "RECENT") changed = true
+                    if (r.kind == "BYE") throw ImapCommandException(r.text)
+                } catch (_: java.net.SocketTimeoutException) {
+                    // just a chance to look at the clock and the stop flag
+                }
+            }
+        } finally {
+            socket.soTimeout = previous
+        }
+        send("DONE\r\n")
+        collect(tag)
+        return changed
+    }
+
+    fun noop() { command("NOOP") }
+
+    private fun uidSet(uids: List<Long>): String {
+        val sorted = uids.distinct().sorted()
+        val out = StringBuilder()
+        var i = 0
+        while (i < sorted.size) {
+            var j = i
+            while (j + 1 < sorted.size && sorted[j + 1] == sorted[j] + 1) j++
+            if (out.isNotEmpty()) out.append(',')
+            out.append(sorted[i]); if (j > i) out.append(':').append(sorted[j])
+            i = j + 1
+        }
+        return out.toString()
     }
 
     fun logout() {
@@ -307,18 +441,23 @@ class ImapClient private constructor(
         val flags = map["FLAGS"]?.items()?.mapNotNull { it.text()?.lowercase() }.orEmpty()
         val env = map["ENVELOPE"]?.items().orEmpty()
         val internal = map["INTERNALDATE"]?.text()?.let { runCatching { internalDate.parse(it) }.getOrNull() }
-        val from = env.getOrNull(2)?.items()?.firstOrNull()?.items()?.let { a ->
-            val mailbox = a.getOrNull(2)?.text().orEmpty()
-            val host = a.getOrNull(3)?.text().orEmpty()
-            Address(MimeWords.decode(a.getOrNull(0)?.text()), if (host.isEmpty()) mailbox else "$mailbox@$host")
+        fun addresses(v: ImapValue?) = v?.items().orEmpty().mapNotNull { it.items().takeIf { a -> a.size >= 4 } }.map { a ->
+            val mailbox = a[2].text().orEmpty()
+            val host = a[3].text().orEmpty()
+            Address(MimeWords.decode(a[0].text()), if (host.isEmpty()) mailbox else "$mailbox@$host")
         }
+        val from = addresses(env.getOrNull(2)).firstOrNull()
         return MessageHeader(
             uid = uid,
             subject = MimeWords.decode(env.getOrNull(1)?.text()),
             from = from,
+            recipients = addresses(env.getOrNull(5)) + addresses(env.getOrNull(6)),
             date = internal,
             messageId = env.getOrNull(9)?.text(),
             inReplyTo = env.getOrNull(8)?.text(),
+            references = map.entries.firstOrNull { it.key.startsWith("BODY[HEADER.FIELDS") }?.value?.bytes()
+                ?.let { io.github.deviablo.email.mail.Mime.parseHeaders(it)["References"] }
+                ?.let { Regex("<[^>]+>").findAll(it).map { m -> m.value }.toList() }.orEmpty(),
             seen = "\\seen" in flags,
             flagged = "\\flagged" in flags,
             hasAttachment = map["BODYSTRUCTURE"]?.let(::hasAttachment) ?: false,

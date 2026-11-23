@@ -8,6 +8,8 @@ import java.io.InputStream
 sealed interface ImapValue {
     data class Atom(val value: String) : ImapValue
     data class Str(val value: String) : ImapValue
+    /** Literal kept byte for byte (whole messages are not necessarily UTF-8). */
+    class Literal(val bytes: ByteArray) : ImapValue
     data class Items(val items: List<ImapValue>) : ImapValue
     data object Nil : ImapValue
 }
@@ -15,6 +17,13 @@ sealed interface ImapValue {
 fun ImapValue.text(): String? = when (this) {
     is ImapValue.Atom -> value
     is ImapValue.Str -> value
+    is ImapValue.Literal -> String(bytes, Charsets.UTF_8)
+    else -> null
+}
+
+fun ImapValue.bytes(): ByteArray? = when (this) {
+    is ImapValue.Literal -> bytes
+    is ImapValue.Str -> value.toByteArray(Charsets.UTF_8)
     else -> null
 }
 
@@ -93,7 +102,7 @@ class ImapReader(private val input: InputStream) {
     private fun readValue(): ImapValue = when (peek()) {
         '('.code -> readList()
         '"'.code -> ImapValue.Str(readQuoted())
-        '{'.code -> ImapValue.Str(readLiteral())
+        '{'.code -> ImapValue.Literal(readLiteral())
         else -> readAtom().let { if (it.equals("NIL", ignoreCase = true)) ImapValue.Nil else ImapValue.Atom(it) }
     }
 
@@ -124,7 +133,7 @@ class ImapReader(private val input: InputStream) {
         }
     }
 
-    private fun readLiteral(): String {
+    private fun readLiteral(): ByteArray {
         read()
         val digits = StringBuilder()
         while (peek() != '}'.code) digits.append(read().toChar())
@@ -139,7 +148,7 @@ class ImapReader(private val input: InputStream) {
             if (n < 0) throw EOFException("Connection closed inside literal")
             offset += n
         }
-        return String(bytes, Charsets.UTF_8)
+        return bytes
     }
 
     /** Atoms may contain a bracketed section with spaces, e.g. BODY[HEADER.FIELDS (DATE)]. */

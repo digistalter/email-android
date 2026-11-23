@@ -2,22 +2,29 @@
 package io.github.deviablo.email.ui
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.deviablo.email.BuildConfig
 import io.github.deviablo.email.R
 import io.github.deviablo.email.data.Account
+import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.Folder
 import io.github.deviablo.email.data.FolderRole
-import io.github.deviablo.email.data.MailDatabase
-import io.github.deviablo.email.data.MailSync
+import io.github.deviablo.email.data.MailRepository
 import io.github.deviablo.email.data.PasswordVault
+import io.github.deviablo.email.data.SearchFilter
 import io.github.deviablo.email.data.StoredMessage
+import io.github.deviablo.email.data.UndoToken
 import io.github.deviablo.email.mail.imap.ImapAuthException
 import io.github.deviablo.email.mail.imap.Security
 import io.github.deviablo.email.mail.imap.ServerSettings
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -36,15 +43,32 @@ data class AccountForm(
     val security: Security = Security.TLS,
     val username: String = "",
     val password: String = "",
+    val smtpHost: String = "",
+    val smtpPort: String = "465",
+    val smtpSecurity: Security = Security.TLS,
 )
+
+data class SearchState(
+    val query: String = "",
+    val filters: Set<SearchFilter> = emptySet(),
+    val results: List<Conversation> = emptyList(),
+    val serverBusy: Boolean = false,
+)
+
+/** A short message at the bottom ("Gelöscht · Rückgängig"). */
+data class Snack(val text: Int, val arg: String? = null, val undo: UndoToken? = null, val spamOf: List<StoredMessage> = emptyList(), val wasSpam: Boolean = false)
 
 data class MailUiState(
     val loaded: Boolean = false,
     val accounts: List<Account> = emptyList(),
+    val unreadByAccount: Map<Long, Int> = emptyMap(),
     val activeAccountId: Long? = null,
     val folders: List<Folder> = emptyList(),
     val currentFolderId: Long? = null,
-    val messages: List<StoredMessage> = emptyList(),
+    val conversations: List<Conversation> = emptyList(),
+    val openKey: String? = null,
+    val selection: Set<String> = emptySet(),
+    val search: SearchState? = null,
     val syncing: Boolean = false,
     val syncError: Int? = null,
     val showAccountForm: Boolean = false,
@@ -53,47 +77,174 @@ data class MailUiState(
 ) {
     val activeAccount get() = accounts.firstOrNull { it.id == activeAccountId }
     val currentFolder get() = folders.firstOrNull { it.id == currentFolderId }
+    val visibleConversations get() = search?.results ?: conversations
+    val openConversation get() = visibleConversations.firstOrNull { it.key == openKey }
+    fun folder(id: Long) = folders.firstOrNull { it.id == id }
 }
 
 class MailViewModel(app: Application) : AndroidViewModel(app) {
-    private val db = MailDatabase(app)
-    private val sync = MailSync(db)
+    val repo = MailRepository.get(app)
+    private val db = repo.db
     private val _state = MutableStateFlow(MailUiState())
     val state: StateFlow<MailUiState> = _state
+    private val _snacks = MutableSharedFlow<Snack>(extraBufferCapacity = 4)
+    val snacks: SharedFlow<Snack> = _snacks
+    private var searchJob: Job? = null
 
     init {
         viewModelScope.launch {
             val accounts = io { db.accounts() }
-            _state.update { it.copy(loaded = true, accounts = accounts, activeAccountId = accounts.firstOrNull()?.id, showAccountForm = accounts.isEmpty()) }
+            val remembered = repo.settings.activeAccountId
+            val active = accounts.firstOrNull { it.id == remembered }?.id ?: accounts.firstOrNull()?.id
+            _state.update { it.copy(loaded = true, accounts = accounts, activeAccountId = active, showAccountForm = accounts.isEmpty()) }
             reload()
             syncActive()
+            io { repo.pruneBodies() }
+        }
+        viewModelScope.launch {
+            repo.changes.collect { accountId -> if (accountId == _state.value.activeAccountId) reload() else refreshUnreadCounts() }
         }
     }
 
+    // --- navigation ---
+
     fun openFolder(folderId: Long) {
-        _state.update { it.copy(currentFolderId = folderId) }
+        _state.update { it.copy(currentFolderId = folderId, openKey = null, selection = emptySet(), search = null) }
         viewModelScope.launch { reload() }
     }
 
     fun switchAccount(accountId: Long) {
-        _state.update { it.copy(activeAccountId = accountId, currentFolderId = null, syncError = null) }
+        repo.settings.activeAccountId = accountId
+        _state.update { it.copy(activeAccountId = accountId, currentFolderId = null, openKey = null, selection = emptySet(), search = null, syncError = null) }
         viewModelScope.launch { reload(); syncActive() }
     }
 
+    /** Opening sets "read" explicitly (Linux app), for the whole conversation. */
+    fun openConversation(c: Conversation?) {
+        _state.update { it.copy(openKey = c?.key) }
+        if (c != null && c.unread) viewModelScope.launch { io { repo.setRead(c.messages, true) } }
+    }
+
     fun showAccountForm(show: Boolean) = _state.update { it.copy(showAccountForm = show, formError = null) }
+
+    // --- selection ---
+
+    fun toggleSelection(c: Conversation) = _state.update {
+        val sel = if (c.key in it.selection) it.selection - c.key else it.selection + c.key
+        it.copy(selection = sel)
+    }
+
+    fun selectAll() = _state.update { it.copy(selection = it.visibleConversations.map { c -> c.key }.toSet()) }
+    fun clearSelection() = _state.update { it.copy(selection = emptySet()) }
+    private fun selected(): List<Conversation> = _state.value.let { s -> s.visibleConversations.filter { it.key in s.selection } }
+
+    // --- actions ---
+
+    fun setRead(convs: List<Conversation>, read: Boolean) = launchIo { convs.forEach { repo.markConversationRead(it, read) } }
+    fun setReadMessage(m: StoredMessage, read: Boolean) = launchIo { repo.setRead(listOf(m), read) }
+    fun setStar(m: StoredMessage, star: Boolean) = launchIo { repo.setStar(m, star) }
+    fun setStar(c: Conversation, star: Boolean) = setStar(c.newest, star)
+
+    fun delete(convs: List<Conversation>) {
+        if (convs.isEmpty()) return
+        closeIfOpen(convs)
+        launchIo {
+            val token = repo.delete(convs.flatMap { it.inFolder })
+            if (token != null) {
+                _snacks.tryEmit(if (convs.size == 1) Snack(R.string.deleted, undo = token) else Snack(R.string.deleted_many, convs.size.toString(), token))
+            }
+        }
+    }
+
+    fun deleteMessage(m: StoredMessage) = launchIo {
+        val token = repo.delete(listOf(m))
+        if (token != null) _snacks.tryEmit(Snack(R.string.deleted, undo = token))
+    }
+
+    fun move(convs: List<Conversation>, target: Folder) {
+        closeIfOpen(convs)
+        launchIo {
+            val token = repo.move(convs.flatMap { it.inFolder }, target)
+            _snacks.tryEmit(Snack(R.string.moved_to, target.name, token))
+        }
+    }
+
+    fun spam(convs: List<Conversation>, spam: Boolean) {
+        closeIfOpen(convs)
+        launchIo {
+            val messages = convs.flatMap { it.inFolder }
+            val token = repo.markSpam(messages, spam) ?: return@launchIo
+            _snacks.tryEmit(Snack(if (spam) R.string.marked_spam else R.string.moved_to, null, token, messages, spam))
+        }
+    }
+
+    fun undo(snack: Snack) {
+        val token = snack.undo ?: return
+        launchIo { repo.undo(token, snack.spamOf, snack.wasSpam) }
+    }
+
+    fun emptyCurrentFolder() {
+        val folder = _state.value.currentFolder ?: return
+        launchIo { repo.emptyFolder(folder) }
+    }
+
+    fun selectedConversations() = selected()
+
+    private fun closeIfOpen(convs: List<Conversation>) {
+        _state.update { s -> s.copy(openKey = if (convs.any { it.key == s.openKey }) null else s.openKey, selection = emptySet()) }
+    }
+
+    // --- search ---
+
+    fun openSearch() = _state.update { it.copy(search = SearchState(), openKey = null, selection = emptySet()) }
+    fun closeSearch() = _state.update { it.copy(search = null, openKey = null) }
+
+    fun updateSearch(query: String? = null, toggle: SearchFilter? = null) {
+        val current = _state.value.search ?: SearchState()
+        val filters = toggle?.let { if (it in current.filters) current.filters - it else current.filters + it } ?: current.filters
+        val next = current.copy(query = query ?: current.query, filters = filters)
+        _state.update { it.copy(search = next) }
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(250)
+            runSearch(next)
+        }
+    }
+
+    private suspend fun runSearch(s: SearchState) {
+        val account = _state.value.activeAccount ?: return
+        val folder = _state.value.currentFolder
+        val words = s.query.split(Regex("\\s+")).map { it.filter { c -> c.isLetterOrDigit() || c == '@' || c == '.' || c == '-' } }.filter { it.isNotEmpty() }
+        if (words.isEmpty() && s.filters.none { it != SearchFilter.THIS_FOLDER }) {
+            _state.update { st -> st.copy(search = st.search?.copy(results = emptyList())) }
+            return
+        }
+        // Every word as a word prefix; quoting keeps OR/NOT/NEAR from acting as operators.
+        val fts = words.joinToString(" ") { "\"${it.replace("\"", "")}*\"" }
+        val folderId = folder?.id?.takeIf { SearchFilter.THIS_FOLDER in s.filters }
+        val results = io { repo.search(account.id, if (words.isEmpty()) "" else fts, folderId, s.filters, emptySet()) }
+        _state.update { st -> st.copy(search = st.search?.copy(results = results)) }
+        // Bodies arrive only when opened, so the server is asked too (Linux app). Words with
+        // umlauts would need IMAP literals in SEARCH; those searches stay local.
+        if (words.isNotEmpty() && words.all { w -> w.all { it.code < 128 } }) {
+            delay(250)
+            _state.update { st -> st.copy(search = st.search?.copy(serverBusy = true)) }
+            val serverHits = io { runCatching { repo.searchOnServer(account, words, folderId) }.getOrDefault(emptySet()) }
+            val merged = if (serverHits.isEmpty()) results else io { repo.search(account.id, fts, folderId, s.filters, serverHits) }
+            if (_state.value.search?.query == s.query) _state.update { st -> st.copy(search = st.search?.copy(results = merged, serverBusy = false)) }
+        }
+    }
+
+    // --- sync and accounts ---
 
     fun syncActive() {
         val account = _state.value.activeAccount ?: return
         if (_state.value.syncing) return
         viewModelScope.launch {
             _state.update { it.copy(syncing = true, syncError = null) }
-            val error = io {
-                runCatching {
-                    val password = PasswordVault.decrypt(db.encryptedPassword(account.id) ?: error("no password"))
-                    sync.sync(account, password)
-                }.exceptionOrNull()
-            }
-            _state.update { it.copy(syncing = false, syncError = error?.let(::friendlyError)) }
+            val result = io { runCatching { repo.syncAccount(account) } }
+            _state.update { it.copy(syncing = false, syncError = result.exceptionOrNull()?.let(::friendlyError)) }
+            if ((result.getOrNull()?.rejected ?: 0) > 0) _snacks.tryEmit(Snack(R.string.server_refused))
             reload()
         }
     }
@@ -108,7 +259,7 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         val settings = ServerSettings(form.host.trim(), port, form.security, username)
         viewModelScope.launch {
             _state.update { it.copy(formBusy = true, formError = null) }
-            val error = io { runCatching { sync.check(settings, form.password) }.exceptionOrNull() }
+            val error = io { runCatching { repo.check(settings, form.password) }.exceptionOrNull() }
             if (error != null) {
                 _state.update { it.copy(formBusy = false, formError = friendlyError(error)) }
                 return@launch
@@ -119,36 +270,62 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
                 displayName = form.displayName.trim(),
                 address = form.address.trim(),
                 imapHost = settings.host, imapPort = port, imapSecurity = form.security, username = username,
+                smtpHost = form.smtpHost.trim().ifBlank { settings.host }, smtpPort = form.smtpPort.toIntOrNull() ?: 465, smtpSecurity = form.smtpSecurity,
             )
             val id = io { db.insertAccount(account, PasswordVault.encrypt(form.password)) }
             val accounts = io { db.accounts() }
+            repo.settings.activeAccountId = id
             _state.update { it.copy(formBusy = false, showAccountForm = false, accounts = accounts, activeAccountId = id, currentFolderId = null) }
             reload()
             syncActive()
         }
     }
 
+    fun reloadAccounts() = viewModelScope.launch {
+        val accounts = io { db.accounts() }
+        _state.update { s ->
+            val active = accounts.firstOrNull { it.id == s.activeAccountId }?.id ?: accounts.firstOrNull()?.id
+            s.copy(accounts = accounts, activeAccountId = active, showAccountForm = accounts.isEmpty())
+        }
+        reload()
+    }
+
     private suspend fun reload() {
         val s = _state.value
         val accountId = s.activeAccountId ?: return
         val folders = io { db.folders(accountId) }
-        val folderId = s.currentFolderId?.takeIf { id -> folders.any { it.id == id } }
-            ?: folders.firstOrNull { it.role == FolderRole.INBOX }?.id
-        val messages = folderId?.let { io { db.messages(it) } }.orEmpty()
-        _state.update { it.copy(folders = folders, currentFolderId = folderId, messages = messages) }
+        val folder = folders.firstOrNull { it.id == s.currentFolderId } ?: folders.firstOrNull { it.role == FolderRole.INBOX }
+        val conversations = folder?.let { io { repo.conversations(accountId, it) } }.orEmpty()
+        _state.update { st ->
+            st.copy(
+                folders = folders, currentFolderId = folder?.id, conversations = conversations,
+                selection = st.selection.filter { key -> conversations.any { it.key == key } }.toSet(),
+            )
+        }
+        _state.value.search?.let { runSearch(it) }
+        refreshUnreadCounts()
+    }
+
+    private suspend fun refreshUnreadCounts() {
+        val counts = io { _state.value.accounts.associate { a -> a.id to (db.folders(a.id).firstOrNull { it.role == FolderRole.INBOX }?.unread ?: 0) } }
+        _state.update { it.copy(unreadByAccount = counts) }
     }
 
     private fun friendlyError(e: Throwable): Int {
         // Class and message only: they never contain the password.
-        android.util.Log.w("E-Mail", "Connection problem: ${e.javaClass.name}: ${e.message}", if (BuildConfig.DEBUG) e else null)
+        Log.w("E-Mail", "Connection problem: ${e.javaClass.name}: ${e.message}", if (BuildConfig.DEBUG) e else null)
         return when (e) {
-        is ImapAuthException -> R.string.error_login
-        is UnknownHostException -> R.string.error_unknown_host
-        is SSLException -> R.string.error_tls
-        is ConnectException, is SocketTimeoutException -> R.string.error_unreachable
-        else -> R.string.error_generic
+            is ImapAuthException -> R.string.error_login
+            is UnknownHostException -> R.string.error_unknown_host
+            is SSLException -> R.string.error_tls
+            is ConnectException, is SocketTimeoutException -> R.string.error_unreachable
+            else -> R.string.error_generic
         }
     }
+
+    fun viewModelScopeLaunchIo(block: suspend () -> Unit) = launchIo(block)
+
+    private fun launchIo(block: suspend () -> Unit) = viewModelScope.launch(Dispatchers.IO) { block() }
 
     private suspend fun <T> io(block: () -> T): T = withContext(Dispatchers.IO) { block() }
 }
