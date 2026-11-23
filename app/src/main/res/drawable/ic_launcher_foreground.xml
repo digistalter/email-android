@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- Placeholder: envelope with seal, based on the Linux app icon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M33,38h42a4,4 0 0 1 4,4v26a4,4 0 0 1 -4,4h-42a4,4 0 0 1 -4,-4v-26a4,4 0 0 1 4,-4z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#C9D3E0"
+        android:strokeWidth="2.5"
+        android:strokeLineJoin="round"
+        android:pathData="M31,41 L54,58 L77,41" />
+    <path
+        android:fillColor="#E95420"
+        android:pathData="M68,62m-9,0a9,9 0 1 0 18,0a9,9 0 1 0 -18,0" />
+</vector>

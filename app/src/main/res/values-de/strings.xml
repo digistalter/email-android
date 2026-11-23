@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<resources>
+    <string name="folder_inbox">Posteingang</string>
+    <string name="folder_drafts">Entwürfe</string>
+    <string name="folder_sent">Gesendet</string>
+    <string name="folder_archive">Archiv</string>
+    <string name="folder_spam">Spam</string>
+    <string name="folder_trash">Papierkorb</string>
+    <string name="own_folders">Eigene Ordner</string>
+    <string name="settings">Einstellungen</string>
+    <string name="add_account">Konto hinzufügen</string>
+    <string name="switch_account">Konto wechseln</string>
+
+    <string name="open_menu">Ordner und Konten</string>
+    <string name="search_hint">In Mails suchen</string>
+    <string name="compose">Schreiben</string>
+    <string name="back">Zurück</string>
+    <string name="delete">Löschen</string>
+    <string name="more">Mehr</string>
+    <string name="newest">Neueste</string>
+    <string name="to_me">an mich · %1$s</string>
+
+    <string name="nothing_selected_title">Keine Unterhaltung ausgewählt</string>
+    <string name="nothing_selected_body">Tippe links auf eine Mail, um sie hier zu lesen.</string>
+    <string name="sample_notice">Beispieldaten – noch kein echtes Konto verbunden.</string>
+</resources>
