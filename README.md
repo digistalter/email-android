@@ -85,7 +85,7 @@ Please report bugs and ideas as an [issue](https://github.com/deviablo/email-and
 
 ## License
 
-E-Mail is an open community project by the E-Mail developers.
+E-Mail is an open community project sponsored by [DIGISTALTER GmbH](https://www.digistalter.de).
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
