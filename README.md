@@ -4,11 +4,11 @@
 
 # E-Mail – the modern email app for Android
 
-A simple, modern email app for Android 12 and newer, made for phones, tablets and foldables, written in Kotlin with Jetpack Compose and Material 3. It is the Android version of [E-Mail for Linux](https://github.com/deviablo/email).
+A simple, modern email app for Android 12 and newer, made for phones, tablets and foldables, written in Kotlin with Jetpack Compose and Material 3. It is the Android version of [E-Mail for Linux](https://github.com/digistalter/email).
 
 Several accounts, IMAP and SMTP, nothing else: no calendar, no chat, no contact management.
 
-**Current version: 1.0.1**
+**Current version: 1.0.2**
 
 <p>
   <img src="docs/screenshots/inbox.png" width="24%" alt="Inbox">
@@ -38,14 +38,16 @@ Every provider with IMAP and SMTP works, for example Gmail, GMX, WEB.DE, iCloud,
 
 ## Install
 
-The app is not in the Play Store; every version is under [Releases](https://github.com/deviablo/email-android/releases/latest) as an APK file. It runs on Android 12 and newer.
+The app is not in the Play Store; every version is under [Releases](https://github.com/digistalter/email-android/releases/latest) as an APK file. It runs on Android 12 and newer.
 
-1. Open [Releases](https://github.com/deviablo/email-android/releases/latest) on your phone and download `e-mail-1.0.1.apk`.
+1. Open [Releases](https://github.com/digistalter/email-android/releases/latest) on your phone and download `e-mail-1.0.2.apk`.
 2. Open the downloaded file, for example from the browser's download notification.
 3. Android asks once whether your browser may install apps. Tap “Settings”, allow “Install unknown apps” and go back.
 4. Tap “Install”. If Google Play Protect says the app is unknown, tap “More details” and then “Install anyway”: the app is simply not in the Play Store.
 
 “E-Mail” then shows up among your apps. **Updates** are installed the same way, right over the existing app; your accounts and mail stay.
+
+**Coming from version 1.0.0 or 1.0.1?** Since 1.0.2 the app has a new ID, so Android installs it as a separate app. Uninstall the old “E-Mail” and set up your accounts again in the new one; your mail stays on the server.
 
 Each release also has a `.sha256` file with the checksum of the APK, for anyone who wants to verify the download.
 
@@ -81,7 +83,7 @@ Releases are built by GitHub Actions (`.github/workflows/build.yml`) when a tag 
 
 ## Contributing
 
-Please report bugs and ideas as an [issue](https://github.com/deviablo/email-android/issues).
+Please report bugs and ideas as an [issue](https://github.com/digistalter/email-android/issues).
 
 ## License
 

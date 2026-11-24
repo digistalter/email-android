@@ -6,17 +6,17 @@ plugins {
 }
 
 android {
-    namespace = "io.github.deviablo.email"
+    namespace = "io.github.digistalter.email"
     compileSdk {
         version = release(37) { minorApiLevel = 1 }
     }
 
     defaultConfig {
-        applicationId = "io.github.deviablo.email"
+        applicationId = "io.github.digistalter.email"
         minSdk = 31
         targetSdk = 37
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.0.2"
     }
 
     // Release signing only on the build server: the key comes from GitHub secrets, never from the repository.

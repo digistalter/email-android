@@ -4,11 +4,11 @@
 
 # E-Mail – die moderne E-Mail-App für Android
 
-Eine einfache, moderne E-Mail-App für Android 12 und neuer, gemacht für Telefone, Tablets und Foldables, geschrieben in Kotlin mit Jetpack Compose und Material 3. Sie ist die Android-Fassung von [E-Mail für Linux](https://github.com/deviablo/email).
+Eine einfache, moderne E-Mail-App für Android 12 und neuer, gemacht für Telefone, Tablets und Foldables, geschrieben in Kotlin mit Jetpack Compose und Material 3. Sie ist die Android-Fassung von [E-Mail für Linux](https://github.com/digistalter/email).
 
 Mehrere Konten, IMAP und SMTP, sonst nichts: kein Kalender, kein Chat, keine Kontaktverwaltung.
 
-**Aktuelle Version: 1.0.1**
+**Aktuelle Version: 1.0.2**
 
 <p>
   <img src="docs/screenshots/inbox.png" width="24%" alt="Posteingang">
@@ -38,14 +38,16 @@ Unterstützt werden alle Anbieter mit IMAP und SMTP, zum Beispiel Gmail, GMX, WE
 
 ## Installieren
 
-Die App gibt es nicht im Play Store; jede Version liegt unter [Releases](https://github.com/deviablo/email-android/releases/latest) als APK-Datei. Sie läuft ab Android 12.
+Die App gibt es nicht im Play Store; jede Version liegt unter [Releases](https://github.com/digistalter/email-android/releases/latest) als APK-Datei. Sie läuft ab Android 12.
 
-1. [Releases](https://github.com/deviablo/email-android/releases/latest) auf dem Telefon öffnen und `e-mail-1.0.1.apk` herunterladen.
+1. [Releases](https://github.com/digistalter/email-android/releases/latest) auf dem Telefon öffnen und `e-mail-1.0.2.apk` herunterladen.
 2. Die heruntergeladene Datei öffnen, zum Beispiel über die Download-Benachrichtigung des Browsers.
 3. Android fragt einmal, ob der Browser Apps installieren darf. Auf „Einstellungen“ tippen, „Unbekannte Apps installieren“ erlauben und zurückgehen.
 4. Auf „Installieren“ tippen. Meldet Google Play Protect, dass die App unbekannt ist: „Weitere Details“ und dann „Trotzdem installieren“ wählen. Die App ist einfach nicht im Play Store.
 
 Danach erscheint „E-Mail“ bei deinen Apps. **Updates** installierst du genauso, direkt über die vorhandene App; Konten und Mails bleiben erhalten.
+
+**Version 1.0.0 oder 1.0.1 installiert?** Seit 1.0.2 hat die App eine neue Kennung, Android installiert sie deshalb als eigene App. Die alte „E-Mail“ deinstallieren und die Konten in der neuen neu einrichten; die Mails bleiben auf dem Server.
 
 Zu jeder Version gibt es außerdem eine `.sha256`-Datei mit der Prüfsumme der APK, falls du den Download überprüfen möchtest.
 
@@ -81,7 +83,7 @@ Veröffentlichungen baut GitHub Actions (`.github/workflows/build.yml`), sobald 
 
 ## Mitmachen
 
-Fehler und Ideen bitte als [Issue](https://github.com/deviablo/email-android/issues) melden.
+Fehler und Ideen bitte als [Issue](https://github.com/digistalter/email-android/issues) melden.
 
 ## Lizenz
 
