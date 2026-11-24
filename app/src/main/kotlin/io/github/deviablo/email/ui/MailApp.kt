@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -103,22 +104,23 @@ fun MailApp(
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
+    val res = LocalResources.current
     var moveRequest by remember { mutableStateOf<List<Conversation>?>(null) }
     val closeDrawer: () -> Unit = { scope.launch { drawerState.close() } }
     val dark = isSystemInDarkTheme()
 
     LaunchedEffect(Unit) {
         vm.snacks.collect { s ->
-            val text = if (s.arg != null) context.getString(s.text, s.arg) else context.getString(s.text)
+            val text = if (s.arg != null) res.getString(s.text, s.arg) else res.getString(s.text)
             if (s.reopen != null) {
-                val result = snackbar.showSnackbar(text, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Long)
+                val result = snackbar.showSnackbar(text, actionLabel = res.getString(R.string.undo), duration = SnackbarDuration.Long)
                 if (result == SnackbarResult.ActionPerformed) onCompose(s.reopen)
             } else if (s.undo == null) {
                 snackbar.showSnackbar(text, duration = SnackbarDuration.Short)
             } else {
                 // Visible exactly as long as the change can still be taken back.
                 val result = withTimeoutOrNull(MailRepository.UNDO_MS - 500) {
-                    snackbar.showSnackbar(text, actionLabel = context.getString(R.string.undo), duration = SnackbarDuration.Indefinite)
+                    snackbar.showSnackbar(text, actionLabel = res.getString(R.string.undo), duration = SnackbarDuration.Indefinite)
                 }
                 if (result == SnackbarResult.ActionPerformed) vm.undo(s)
             }

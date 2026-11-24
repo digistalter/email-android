@@ -36,7 +36,6 @@ data class Draft(
 ) {
     /** Everyone who gets the message, for the SMTP envelope. */
     fun recipients(): List<String> = (to + cc + bcc).map { it.email }.distinctBy { it.lowercase() }
-    fun hasRecipients() = to.isNotEmpty() || cc.isNotEmpty() || bcc.isNotEmpty()
 }
 
 enum class ReplyKind { REPLY, REPLY_ALL, FORWARD }

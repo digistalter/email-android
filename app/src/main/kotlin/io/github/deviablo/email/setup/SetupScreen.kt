@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -92,6 +93,7 @@ private class ManualFields(s: DiscoveredSettings) {
 @Composable
 fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Step.ADDRESS) }
     var address by remember { mutableStateOf("") }
@@ -118,13 +120,13 @@ fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
 
     fun adviceFor(e: CheckError, s: DiscoveredSettings): String = when (e) {
         CheckError.IMAP_LOGIN, CheckError.SMTP_LOGIN -> when (provider?.preparation) {
-            Preparation.APP_PASSWORD -> context.getString(R.string.advice_app_password, provider.name)
-            Preparation.ENABLE_IMAP -> context.getString(R.string.advice_access, provider.name)
-            else -> context.getString(R.string.advice_check_password)
+            Preparation.APP_PASSWORD -> res.getString(R.string.advice_app_password, provider.name)
+            Preparation.ENABLE_IMAP -> res.getString(R.string.advice_access, provider.name)
+            else -> res.getString(R.string.advice_check_password)
         }
-        CheckError.IMAP_CONNECTION -> context.getString(R.string.advice_imap_unreachable, s.imap.host)
-        CheckError.SMTP_CONNECTION -> context.getString(R.string.advice_smtp_unreachable, s.smtp.host)
-        CheckError.MAILBOX -> context.getString(R.string.advice_mailbox)
+        CheckError.IMAP_CONNECTION -> res.getString(R.string.advice_imap_unreachable, s.imap.host)
+        CheckError.SMTP_CONNECTION -> res.getString(R.string.advice_smtp_unreachable, s.smtp.host)
+        CheckError.MAILBOX -> res.getString(R.string.advice_mailbox)
     }
 
     fun check(s: DiscoveredSettings) {
@@ -181,8 +183,8 @@ fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
     fun continueFromAddress() {
         val a = address.trim()
         error = when {
-            !Providers.isValidAddress(a) -> context.getString(R.string.setup_address_invalid)
-            vm.state.value.accounts.any { it.address.equals(a, ignoreCase = true) } -> context.getString(R.string.setup_already_added)
+            !Providers.isValidAddress(a) -> res.getString(R.string.setup_address_invalid)
+            vm.state.value.accounts.any { it.address.equals(a, ignoreCase = true) } -> res.getString(R.string.setup_already_added)
             else -> null
         }
         if (error != null) return
@@ -283,10 +285,10 @@ fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
                             if (app) stringResource(R.string.setup_app_password_title) else stringResource(R.string.setup_enable_imap_title, p.name),
                             if (app) stringResource(R.string.setup_app_password_lead, p.name) else stringResource(R.string.setup_enable_imap_lead, p.name),
                         )
-                        preparationSteps(p.id).forEachIndexed { i, res ->
+                        preparationSteps(p.id).forEachIndexed { i, step ->
                             Row(Modifier.padding(vertical = 6.dp)) {
                                 Text("${i + 1}.", Modifier.widthIn(min = 24.dp), fontWeight = FontWeight.Medium)
-                                Text(stringResource(res))
+                                Text(stringResource(step))
                             }
                         }
                         p.helpUrl?.let { url ->
@@ -399,7 +401,7 @@ fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
                     Step.CONFIRM -> Button(onClick = { settings?.let(::check) }) { Text(stringResource(R.string.setup_continue)) }
                     Step.MANUAL -> Button(onClick = {
                         val s = manual?.settings()
-                        if (s == null || password.isEmpty()) error = context.getString(R.string.setup_manual_incomplete)
+                        if (s == null || password.isEmpty()) error = res.getString(R.string.setup_manual_incomplete)
                         else { error = null; cameFromManual = true; foundProvider = null; check(s) }
                     }) { Text(stringResource(R.string.setup_check_server)) }
                     Step.NAMES -> Button(onClick = {

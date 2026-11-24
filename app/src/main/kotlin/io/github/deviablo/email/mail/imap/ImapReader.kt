@@ -40,7 +40,6 @@ data class ImapResponse(
     val values: List<ImapValue> = emptyList(),
     val text: String = "",
 ) {
-    val isTagged get() = tag != "*" && tag != "+"
     val isOk get() = kind == "OK"
 }
 
@@ -125,7 +124,7 @@ class ImapReader(private val input: InputStream) {
         while (true) {
             val b = read()
             when (b) {
-                '"'.code -> return out.toString(Charsets.UTF_8)
+                '"'.code -> return String(out.toByteArray(), Charsets.UTF_8)
                 '\\'.code -> out.write(read())
                 '\r'.code, '\n'.code -> throw ImapProtocolException("Unterminated quoted string")
                 else -> out.write(b)
@@ -175,6 +174,6 @@ class ImapReader(private val input: InputStream) {
             if (b == '\n'.code) break
             out.write(b)
         }
-        return out.toString(Charsets.UTF_8)
+        return String(out.toByteArray(), Charsets.UTF_8)
     }
 }

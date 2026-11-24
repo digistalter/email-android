@@ -21,7 +21,6 @@
     <string name="delete">Delete</string>
     <string name="more">More</string>
     <string name="newest">Newest</string>
-    <string name="to_me">to me · %1$s</string>
 
     <string name="nothing_selected_title">No conversation selected</string>
     <string name="nothing_selected_body">Tap a mail on the left to read it here.</string>
@@ -60,7 +59,6 @@
     <string name="not_spam">Not spam</string>
     <string name="show_source">Show source</string>
     <string name="print">Print …</string>
-    <string name="edit">Edit</string>
     <string name="select_all">Select all</string>
     <string name="selected_count">%1$d selected</string>
     <string name="end_selection">End selection</string>
@@ -74,13 +72,15 @@
     <string name="empty_spam_action">Empty spam</string>
     <string name="empty_trash_q">Empty trash?</string>
     <string name="empty_spam_q">Empty spam?</string>
-    <string name="empty_confirm_body">%1$d messages will be deleted for good. This cannot be undone.</string>
+    <plurals name="empty_confirm_body">
+        <item quantity="one">%1$d message will be deleted for good. This cannot be undone.</item>
+        <item quantity="other">%1$d messages will be deleted for good. This cannot be undone.</item>
+    </plurals>
     <string name="cancel">Cancel</string>
     <string name="images_blocked">External images were blocked so the sender cannot see that you opened the mail.</string>
     <string name="show_once">Show once</string>
     <string name="always_for">Always for %1$s</string>
     <string name="save">Save</string>
-    <string name="open">Open</string>
     <string name="loading_message">Loading message …</string>
     <string name="message_unavailable">This message could not be loaded.</string>
     <string name="reply_to">Reply to %1$s …</string>
@@ -107,10 +107,7 @@
         <item quantity="one">%1$d result in this folder</item>
         <item quantity="other">%1$d results in this folder</item>
     </plurals>
-    <string name="searching_server">Searching on the server …</string>
-    <string name="search_field">Search</string>
     <string name="clear">Clear</string>
-    <string name="saved">Saved</string>
     <string name="compose_from">From</string>
     <string name="compose_to">To</string>
     <string name="compose_cc">Cc</string>
@@ -287,6 +284,5 @@
     <string name="account_remove_q">Remove “%1$s”?</string>
     <string name="account_remove_body">The account and its mails are removed from this device. The mails stay on the server.</string>
     <string name="account_new_password">New password</string>
-    <string name="account_saved">Saved</string>
     <string name="account_checking">Checking …</string>
 </resources>

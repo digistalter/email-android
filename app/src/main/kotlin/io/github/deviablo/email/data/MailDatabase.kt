@@ -374,12 +374,6 @@ class MailDatabase(context: Context) : SQLiteOpenHelper(context, "mail.db", null
     fun messagesOlderThanInFolder(folderId: Long, firstSeenBefore: Long): List<StoredMessage> =
         query("WHERE folder_id = ? AND first_seen_ms < ? AND uid > 0", arrayOf(folderId.toString(), firstSeenBefore.toString()))
 
-    fun knownSenders(accountId: Long, prefix: String, limit: Int = 8): List<Pair<String, String>> = readableDatabase.rawQuery(
-        """SELECT from_name, from_address, MAX(date_ms) d FROM messages WHERE account_id = ? AND from_address != ''
-           AND (from_address LIKE ? OR from_name LIKE ?) GROUP BY lower(from_address) ORDER BY d DESC LIMIT $limit""",
-        arrayOf(accountId.toString(), "$prefix%", "%$prefix%"),
-    ).use { c -> c.list { getString(0) to getString(1) } }
-
     // --- queue of local changes ---
 
     fun addOp(op: PendingOp): Long = writableDatabase.insertOrThrow("ops", null, ContentValues().apply {
@@ -399,9 +393,6 @@ class MailDatabase(context: Context) : SQLiteOpenHelper(context, "mail.db", null
     fun deleteOp(id: Long) {
         writableDatabase.delete("ops", "id = ?", arrayOf(id.toString()))
     }
-
-    fun hasOps(accountId: Long): Boolean =
-        readableDatabase.rawQuery("SELECT 1 FROM ops WHERE account_id = ? LIMIT 1", arrayOf(accountId.toString())).use { it.moveToFirst() }
 
     // --- privacy lists ---
 
@@ -474,17 +465,10 @@ class MailDatabase(context: Context) : SQLiteOpenHelper(context, "mail.db", null
         writableDatabase.execSQL("UPDATE outbox SET attempts = attempts + 1, next_try = ?, last_error = ? WHERE id = ?", arrayOf<Any?>(nextTry, error, id))
     }
 
-    /** Mails still waiting to go out (all accounts or one). */
-    fun unsentCount(accountId: Long? = null): Int = readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM outbox WHERE kind = 'send'" + if (accountId != null) " AND account_id = $accountId" else "", null,
-    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-
+    /** Whether drafts or mail of this account still wait for the server. */
     fun hasOutbox(accountId: Long): Boolean = readableDatabase.rawQuery(
         "SELECT 1 FROM outbox WHERE account_id = ? LIMIT 1", arrayOf(accountId.toString()),
     ).use { it.moveToFirst() }
-
-    fun pendingDraftsCount(accountId: Long): Int =
-        readableDatabase.rawQuery("SELECT COUNT(*) FROM outbox WHERE account_id = ? AND kind = 'draft'", arrayOf(accountId.toString())).use { if (it.moveToFirst()) it.getInt(0) else 0 }
 
     /** Addresses for the recipient suggestions: senders and recipients of this account's mail, most frequent first. */
     fun knownAddresses(accountId: Long): List<Pair<String, String>> {

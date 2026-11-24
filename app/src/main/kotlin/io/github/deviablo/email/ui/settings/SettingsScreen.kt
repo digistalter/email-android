@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.github.deviablo.email.ui.settings
 
-import android.Manifest
 import android.app.LocaleManager
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.LocaleList
 import android.provider.Settings as SystemSettings
@@ -55,12 +53,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
 import io.github.deviablo.email.R
 import io.github.deviablo.email.background.PushService
 import io.github.deviablo.email.data.Account
@@ -184,7 +183,7 @@ private fun MainPage(vm: MailViewModel, onBack: () -> Unit, onAddAccount: () -> 
         // Coming back from the system settings: the permission may have changed.
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                permitted = ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+                permitted = NotificationManagerCompat.from(context).areNotificationsEnabled()
                 tick++
             }
         }
@@ -260,6 +259,7 @@ private fun MainPage(vm: MailViewModel, onBack: () -> Unit, onAddAccount: () -> 
 private fun AccountPage(vm: MailViewModel, account: Account, onBack: () -> Unit, onServers: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val res = LocalResources.current
     var name by remember(account.id) { mutableStateOf(account.displayName) }
     var label by remember(account.id) { mutableStateOf(account.name) }
     var askRemove by remember { mutableStateOf(false) }
@@ -320,7 +320,7 @@ private fun AccountPage(vm: MailViewModel, account: Account, onBack: () -> Unit,
                     scope.launch {
                         val failed = withContext(Dispatchers.IO) { AccountCheck.run(account.discovered(), password) }
                         busy = false
-                        if (failed == null) { vm.updateAccount(account, password); passwordDialog = false } else error = context.getString(R.string.advice_check_password)
+                        if (failed == null) { vm.updateAccount(account, password); passwordDialog = false } else error = res.getString(R.string.advice_check_password)
                     }
                 }) { Text(stringResource(R.string.save)) }
             },
@@ -334,6 +334,7 @@ private fun Account.discovered() = DiscoveredSettings(ServerConfig(imapHost, ima
 @Composable
 private fun ServersPage(vm: MailViewModel, account: Account, onBack: () -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     var imapHost by remember { mutableStateOf(account.imapHost) }
     var imapPort by remember { mutableStateOf(account.imapPort.toString()) }
@@ -361,7 +362,7 @@ private fun ServersPage(vm: MailViewModel, account: Account, onBack: () -> Unit)
                 val ip = imapPort.toIntOrNull()
                 val sp = smtpPort.toIntOrNull()
                 if (ip == null || sp == null || imapHost.isBlank() || smtpHost.isBlank() || username.isBlank()) {
-                    message = context.getString(R.string.setup_manual_incomplete); return@Button
+                    message = res.getString(R.string.setup_manual_incomplete); return@Button
                 }
                 val updated = account.copy(imapHost = imapHost.trim(), imapPort = ip, imapSecurity = imapSecurity, smtpHost = smtpHost.trim(), smtpPort = sp, smtpSecurity = smtpSecurity, username = username)
                 busy = true; message = null
@@ -370,7 +371,7 @@ private fun ServersPage(vm: MailViewModel, account: Account, onBack: () -> Unit)
                     val failed = withContext(Dispatchers.IO) { AccountCheck.run(updated.discovered(), vm.repo.password(account.id)) }
                     busy = false
                     if (failed == null) { vm.updateAccount(updated); onBack() }
-                    else message = context.getString(
+                    else message = res.getString(
                         when (failed) {
                             io.github.deviablo.email.setup.CheckError.IMAP_CONNECTION -> R.string.advice_imap_unreachable
                             io.github.deviablo.email.setup.CheckError.SMTP_CONNECTION -> R.string.advice_smtp_unreachable

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 package io.github.deviablo.email
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -69,6 +70,8 @@ class MainActivity : ComponentActivity() {
         val repo = MailRepository.get(this)
         if (!repo.settings.notifications || repo.settings.askedForNotifications) return
         if (vm.state.value.accounts.isEmpty() || vm.state.value.showAccountForm) return
+        // Before Android 13 notifications need no permission.
+        if (Build.VERSION.SDK_INT < 33) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
         repo.settings.askedForNotifications = true
         askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)

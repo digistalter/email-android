@@ -19,7 +19,6 @@
     <string name="delete">Löschen</string>
     <string name="more">Mehr</string>
     <string name="newest">Neueste</string>
-    <string name="to_me">an mich · %1$s</string>
 
     <string name="nothing_selected_title">Keine Unterhaltung ausgewählt</string>
     <string name="nothing_selected_body">Tippe links auf eine Mail, um sie hier zu lesen.</string>
@@ -58,7 +57,6 @@
     <string name="not_spam">Kein Spam</string>
     <string name="show_source">Quelltext anzeigen</string>
     <string name="print">Drucken …</string>
-    <string name="edit">Bearbeiten</string>
     <string name="select_all">Alle auswählen</string>
     <string name="selected_count">%1$d ausgewählt</string>
     <string name="end_selection">Auswahl beenden</string>
@@ -72,13 +70,15 @@
     <string name="empty_spam_action">Spam leeren</string>
     <string name="empty_trash_q">Papierkorb leeren?</string>
     <string name="empty_spam_q">Spam leeren?</string>
-    <string name="empty_confirm_body">%1$d Nachrichten werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</string>
+    <plurals name="empty_confirm_body">
+        <item quantity="one">%1$d Nachricht wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.</item>
+        <item quantity="other">%1$d Nachrichten werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.</item>
+    </plurals>
     <string name="cancel">Abbrechen</string>
     <string name="images_blocked">Externe Bilder wurden blockiert, damit der Absender nicht sieht, dass du die Mail geöffnet hast.</string>
     <string name="show_once">Einmal anzeigen</string>
     <string name="always_for">Immer für %1$s</string>
     <string name="save">Speichern</string>
-    <string name="open">Öffnen</string>
     <string name="loading_message">Nachricht wird geladen …</string>
     <string name="message_unavailable">Diese Nachricht konnte nicht geladen werden.</string>
     <string name="reply_to">Antworten an %1$s …</string>
@@ -105,10 +105,7 @@
         <item quantity="one">%1$d Treffer in diesem Ordner</item>
         <item quantity="other">%1$d Treffer in diesem Ordner</item>
     </plurals>
-    <string name="searching_server">Suche auf dem Server …</string>
-    <string name="search_field">Suchen</string>
     <string name="clear">Leeren</string>
-    <string name="saved">Gespeichert</string>
     <string name="compose_from">Von</string>
     <string name="compose_to">An</string>
     <string name="compose_cc">Cc</string>
@@ -285,6 +282,5 @@
     <string name="account_remove_q">„%1$s“ entfernen?</string>
     <string name="account_remove_body">Das Konto und seine Mails werden von diesem Gerät entfernt. Auf dem Server bleiben die Mails erhalten.</string>
     <string name="account_new_password">Neues Passwort</string>
-    <string name="account_saved">Gespeichert</string>
     <string name="account_checking">Wird geprüft …</string>
 </resources>

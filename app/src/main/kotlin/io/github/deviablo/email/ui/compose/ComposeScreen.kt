@@ -63,6 +63,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -144,6 +145,7 @@ fun ComposeScreen(vm: MailViewModel, request: ComposeRequest, onClose: () -> Uni
 @Composable
 private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     val controller = remember { EditorController() }
@@ -247,11 +249,11 @@ private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: 
         mm.commitTyped()
         val leftovers = listOf(mm.toText, mm.ccText, mm.bccText).filter { it.isNotBlank() }
         if (leftovers.isNotEmpty()) {
-            scope.launch { snackbar.showSnackbar(context.getString(R.string.invalid_recipients, leftovers.joinToString(", "))) }
+            scope.launch { snackbar.showSnackbar(res.getString(R.string.invalid_recipients, leftovers.joinToString(", "))) }
             return
         }
         if (mm.to.isEmpty() && mm.cc.isEmpty() && mm.bcc.isEmpty()) {
-            scope.launch { snackbar.showSnackbar(context.getString(R.string.no_recipients)) }
+            scope.launch { snackbar.showSnackbar(res.getString(R.string.no_recipients)) }
             return
         }
         if (mm.subject.isBlank() && !confirmedNoSubject) { askNoSubject = true; return }
@@ -291,7 +293,7 @@ private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: 
         val mm = model ?: return@rememberLauncherForActivityResult
         scope.launch {
             val files = withContext(Dispatchers.IO) { uris.map { readAttachment(context, it) } }
-            if (files.any { it == null }) snackbar.showSnackbar(context.getString(R.string.file_unreadable))
+            if (files.any { it == null }) snackbar.showSnackbar(res.getString(R.string.file_unreadable))
             mm.attachments = mm.attachments + files.filterNotNull()
         }
     }
@@ -299,7 +301,7 @@ private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: 
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val data = withContext(Dispatchers.IO) { pictureDataUri(context, uri) }
-            if (data == null) snackbar.showSnackbar(context.getString(R.string.file_unreadable)) else controller.insertImage(data)
+            if (data == null) snackbar.showSnackbar(res.getString(R.string.file_unreadable)) else controller.insertImage(data)
         }
     }
 

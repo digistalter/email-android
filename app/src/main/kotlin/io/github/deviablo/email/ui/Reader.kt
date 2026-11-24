@@ -49,7 +49,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -206,7 +209,8 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Bo
         failed = result == null
     }
     val me = stringResource(R.string.me)
-    val ownAddresses = vm.state.value.accounts.map { it.address.lowercase() }
+    val accounts by remember(vm) { vm.state.map { it.accounts }.distinctUntilChanged() }.collectAsState(emptyList())
+    val ownAddresses = accounts.map { it.address.lowercase() }
     val recipients = m.recipients.split(", ").filter { it.isNotBlank() }.joinToString(", ") { r ->
         if (ownAddresses.any { r.lowercase().contains(it) }) me else r.substringBefore(" <")
     }.ifBlank { me }

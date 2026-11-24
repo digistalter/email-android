@@ -3,7 +3,6 @@ package io.github.deviablo.email.mail
 
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import org.jsoup.safety.Cleaner
 import org.jsoup.safety.Safelist
 import java.net.IDN
@@ -140,7 +139,4 @@ object HtmlSafety {
     }.getOrNull()
 
     fun senderDomain(address: String): String = address.substringAfterLast('@').lowercase()
-
-    @Suppress("unused")
-    private fun Element.isEmptyImage() = tagName() == "img" && attr("src").isBlank()
 }

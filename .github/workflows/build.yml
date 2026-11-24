@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Runs the tests on every push and pull request. For a tag "v1.2.3" it also builds the signed APK
+# Runs the tests and lint on every push and pull request. For a tag "v1.2.3" it also builds the signed APK
 # and publishes it as a GitHub release.
 #
 # Secrets for signing (Settings → Secrets and variables → Actions):
@@ -32,6 +32,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Unit tests
         run: ./gradlew --no-configuration-cache testDebugUnitTest
+      - name: Lint
+        run: ./gradlew --no-configuration-cache lintDebug
       - name: Debug build
         run: ./gradlew --no-configuration-cache assembleDebug
 

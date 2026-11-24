@@ -171,7 +171,7 @@ private fun FolderHeader(state: MailUiState, vm: MailViewModel, onMenu: () -> Un
         AlertDialog(
             onDismissRequest = { confirm = false },
             title = { Text(stringResource(if (folder.role == FolderRole.TRASH) R.string.empty_trash_q else R.string.empty_spam_q)) },
-            text = { Text(stringResource(R.string.empty_confirm_body, folder.total)) },
+            text = { Text(pluralStringResource(R.plurals.empty_confirm_body, folder.total, folder.total)) },
             confirmButton = { TextButton(onClick = { confirm = false; vm.emptyCurrentFolder() }) { Text(stringResource(if (folder.role == FolderRole.TRASH) R.string.empty_trash_action else R.string.empty_spam_action)) } },
             dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } },
         )

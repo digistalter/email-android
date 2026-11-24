@@ -84,8 +84,6 @@ data class MailUiState(
     val syncing: Boolean = false,
     val syncError: Int? = null,
     val showAccountForm: Boolean = false,
-    val formBusy: Boolean = false,
-    val formError: Int? = null,
 ) {
     val activeAccount get() = accounts.firstOrNull { it.id == activeAccountId }
     val currentFolder get() = folders.firstOrNull { it.id == currentFolderId }
@@ -185,7 +183,7 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         reload()
     }
 
-    fun showAccountForm(show: Boolean) = _state.update { it.copy(showAccountForm = show, formError = null) }
+    fun showAccountForm(show: Boolean) = _state.update { it.copy(showAccountForm = show) }
 
     // --- selection ---
 
@@ -351,15 +349,6 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
         reload()
         syncActive()
         return true
-    }
-
-    fun reloadAccounts() = viewModelScope.launch {
-        val accounts = io { db.accounts() }
-        _state.update { s ->
-            val active = accounts.firstOrNull { it.id == s.activeAccountId }?.id ?: accounts.firstOrNull()?.id
-            s.copy(accounts = accounts, activeAccountId = active, showAccountForm = accounts.isEmpty())
-        }
-        reload()
     }
 
     private suspend fun reload() {
