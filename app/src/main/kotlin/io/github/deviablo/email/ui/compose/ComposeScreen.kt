@@ -521,7 +521,7 @@ private fun RecipientRow(
     }
     if (focused && text.isNotBlank()) {
         val q = text.trim().lowercase()
-        val hits = known.filter { k -> list.none { it.email.equals(k.email, true) } && (k.email.contains(q) || k.name.lowercase().contains(q)) }.take(4)
+        val hits = known.filter { k -> list.none { it.email.equals(k.email, true) } && matchesStart(k, q) }.take(4)
         Column {
             hits.forEach { k ->
                 Column(
@@ -570,3 +570,9 @@ private fun pictureDataUri(context: Context, uri: Uri): String? = runCatching {
     bitmap.recycle()
     "data:$mime;base64," + java.util.Base64.getEncoder().encodeToString(out.toByteArray())
 }.getOrNull()
+
+/** A suggestion fits when a word of the name or a part of the address starts with what was typed, not just any letters. */
+private fun matchesStart(k: Mailbox, q: String): Boolean {
+    val words = k.name.lowercase().split(' ', '-', '.') + k.email.lowercase().split('@', '.', '-', '_', '+')
+    return k.email.lowercase().startsWith(q) || k.name.lowercase().startsWith(q) || words.any { it.startsWith(q) }
+}

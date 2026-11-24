@@ -39,7 +39,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -99,6 +101,9 @@ fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
     var address by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+    val scroll = rememberScrollState()
+    // The message sits below the fields; bring it into view so a failed check is noticed.
+    LaunchedEffect(error) { if (error != null) { withFrameNanos { }; scroll.animateScrollTo(scroll.maxValue) } }
     var settings by remember { mutableStateOf<DiscoveredSettings?>(null) }
     var foundProvider by remember { mutableStateOf<Provider?>(null) }
     var stageFind by remember { mutableStateOf(false) }
@@ -240,7 +245,7 @@ fun SetupScreen(vm: MailViewModel, canCancel: Boolean, onFinished: () -> Unit) {
                 }
             }
             Column(
-                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 24.dp)
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal = 24.dp, vertical = 24.dp)
                     .widthIn(max = 560.dp),
             ) {
                 val eyebrow = when (step) {

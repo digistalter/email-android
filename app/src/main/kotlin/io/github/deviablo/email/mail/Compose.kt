@@ -155,7 +155,8 @@ object Compose {
 
     fun newDraft(sender: String, signature: String) = Draft(
         messageId = newMessageId(sender),
-        html = "<div><br></div><div><br></div>" + signatureBlock(signature),
+        // An empty line between text and signature; without a signature the text starts in the first line.
+        html = if (signature.isBlank()) "<div><br></div>" else "<div><br></div><div><br></div>" + signatureBlock(signature),
     )
 
     /** A reply or forward of [original], with the quote below the signature (Linux app). */

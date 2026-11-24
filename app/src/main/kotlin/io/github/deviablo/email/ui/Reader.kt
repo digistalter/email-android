@@ -210,7 +210,7 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Bo
     }
     val me = stringResource(R.string.me)
     val accounts by remember(vm) { vm.state.map { it.accounts }.distinctUntilChanged() }.collectAsState(emptyList())
-    val ownAddresses = accounts.map { it.address.lowercase() }
+    val ownAddresses = accounts.filter { it.id == m.accountId }.map { it.address.lowercase() }
     val recipients = m.recipients.split(", ").filter { it.isNotBlank() }.joinToString(", ") { r ->
         if (ownAddresses.any { r.lowercase().contains(it) }) me else r.substringBefore(" <")
     }.ifBlank { me }

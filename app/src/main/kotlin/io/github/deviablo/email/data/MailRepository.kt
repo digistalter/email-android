@@ -241,8 +241,8 @@ class MailRepository private constructor(context: Context) {
     }
 
     fun knownAddresses(account: Account): List<Mailbox> {
-        val own = db.accounts().map { it.address.lowercase() }.toSet()
-        return db.knownAddresses(account.id).filter { it.second !in own }.map { Mailbox(it.first, it.second) }
+        val own = account.address.lowercase()
+        return db.knownAddresses(account.id).filter { it.second.lowercase() != own }.map { Mailbox(it.first, it.second) }
     }
 
     // --- search ---

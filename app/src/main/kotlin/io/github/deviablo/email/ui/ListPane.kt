@@ -38,7 +38,10 @@ import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -251,17 +254,20 @@ private fun SwipeableRow(
     c: Conversation, state: MailUiState, selected: Boolean, selecting: Boolean, highlight: String,
     onClick: () -> Unit, onLongClick: () -> Unit, onSwipeRead: () -> Unit, onSwipeDelete: () -> Unit,
 ) {
-    val swipe = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> { onSwipeRead(); false } // row stays, only the state flips
-                SwipeToDismissBoxValue.EndToStart -> { onSwipeDelete(); true }
-                else -> false
-            }
-        },
-    )
+    // Not saveable on purpose: a row that comes back through "Undo" would otherwise reappear swiped
+    // away, and that restored state counts as a new swipe and deletes the mail a second time.
+    val density = LocalDensity.current
+    val swipe = remember(c.key) { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled) { with(density) { 56.dp.toPx() } } }
+    val scope = rememberCoroutineScope()
     SwipeToDismissBox(
         state = swipe,
+        onDismiss = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> { onSwipeRead(); scope.launch { swipe.reset() } } // row stays, only the state flips
+                SwipeToDismissBoxValue.EndToStart -> onSwipeDelete()
+                else -> Unit
+            }
+        },
         enableDismissFromStartToEnd = !selecting,
         enableDismissFromEndToStart = !selecting,
         backgroundContent = {
@@ -294,7 +300,8 @@ private fun ConversationRow(c: Conversation, state: MailUiState, selected: Boole
     val colors = MaterialTheme.colorScheme
     val strong = if (c.unread) FontWeight.Bold else FontWeight.Normal
     val textColor = if (c.unread) colors.onSurface else colors.onSurfaceVariant
-    val own = state.accounts.map { it.address.lowercase() }.toSet()
+    // Only this account's own address is "me"; the user's other accounts are separate people here.
+    val own = setOfNotNull(state.accounts.firstOrNull { it.id == c.newest.accountId }?.address?.lowercase())
     // In "Sent" and "Drafts" the people it goes to matter, not oneself (as in Google's apps).
     val outgoing = state.currentFolder?.role.let { it == FolderRole.SENT || it == FolderRole.DRAFTS } && state.search == null
     val recipients = if (outgoing) Compose.parseAddresses(c.newest.recipients).first else emptyList()
