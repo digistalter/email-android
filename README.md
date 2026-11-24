@@ -4,11 +4,11 @@
 
 # E-Mail – the modern email app for Android
 
-A simple, modern email app for Android 12 and newer, written in Kotlin with Jetpack Compose and Material 3. It is the Android version of [E-Mail for Linux](https://github.com/deviablo/email).
+A simple, modern email app for Android 12 and newer, made for phones, tablets and foldables, written in Kotlin with Jetpack Compose and Material 3. It is the Android version of [E-Mail for Linux](https://github.com/deviablo/email).
 
 Several accounts, IMAP and SMTP, nothing else: no calendar, no chat, no contact management.
 
-**Current version: 1.0.0**
+**Current version: 1.0.1**
 
 <p>
   <img src="docs/screenshots/inbox.png" width="24%" alt="Inbox">
@@ -30,7 +30,7 @@ Several accounts, IMAP and SMTP, nothing else: no calendar, no chat, no contact 
 - **Writing:** formatting, pictures in the text, attachments, Cc and Bcc, and one signature per account. Drafts are saved automatically, and what you write while offline is sent as soon as you are connected again.
 - **Search** across the whole account with filters, also on the server.
 - **Notifications through the system,** per account if you like, with “Mark as read” and “Delete”. The app checks every 15 minutes; with “Notify immediately” it keeps a connection open and reports new mail within seconds.
-- **Phone and tablet:** on wide screens the list and the conversation sit side by side. Printing through the system dialog.
+- **Phone, tablet and foldable:** on wide screens the list and the conversation sit side by side, new messages open in their own window. On foldables such as the Pixel Fold the app uses the cover screen like a phone and the unfolded inner screen like a tablet; folding and unfolding keeps your place, even in a message you are writing. Printing through the system dialog.
 - **Private:** external images load only after you allow them, passwords are encrypted with the Android Keystore and leave the device only to sign in, no cloud backup.
 - **Languages:** English and German.
 
@@ -40,7 +40,7 @@ Every provider with IMAP and SMTP works, for example Gmail, GMX, WEB.DE, iCloud,
 
 The app is not in the Play Store; every version is under [Releases](https://github.com/deviablo/email-android/releases/latest) as an APK file. It runs on Android 12 and newer.
 
-1. Open [Releases](https://github.com/deviablo/email-android/releases/latest) on your phone and download `e-mail-1.0.0.apk`.
+1. Open [Releases](https://github.com/deviablo/email-android/releases/latest) on your phone and download `e-mail-1.0.1.apk`.
 2. Open the downloaded file, for example from the browser's download notification.
 3. Android asks once whether your browser may install apps. Tap “Settings”, allow “Install unknown apps” and go back.
 4. Tap “Install”. If Google Play Protect says the app is unknown, tap “More details” and then “Install anyway”: the app is simply not in the Play Store.

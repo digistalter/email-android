@@ -137,20 +137,32 @@ private class ComposeModel(val account: Account, draft: Draft, val original: Ori
  */
 @Composable
 fun ComposeScreen(vm: MailViewModel, request: ComposeRequest, onClose: () -> Unit, modifier: Modifier = Modifier) {
-    // A new request (e.g. "Undo" reopening a draft) gets a fresh composer.
-    androidx.compose.runtime.key(request) { ComposeContent(vm, request, onClose, modifier) }
+    // A new request (e.g. "Undo" reopening a draft) gets a fresh composer. One session per request
+    // keeps the mail when the composer moves between full screen and the window over the list, for
+    // example when a foldable is unfolded.
+    androidx.compose.runtime.key(request) {
+        val session = remember(request) { vm.composeSessions.getOrPut(request) { ComposeSession() } as ComposeSession }
+        ComposeContent(vm, request, session, { vm.composeSessions.remove(request); onClose() }, modifier)
+    }
+}
+
+private class ComposeSession {
+    val controller = EditorController()
+    var account: Account? = null
+    var model: ComposeModel? = null
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: () -> Unit, modifier: Modifier) {
+private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, session: ComposeSession, onClose: () -> Unit, modifier: Modifier) {
     val context = LocalContext.current
     val res = LocalResources.current
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
-    val controller = remember { EditorController() }
-    val account = remember { vm.state.value.activeAccount }
-    var model by remember { mutableStateOf<ComposeModel?>(null) }
+    val controller = session.controller
+    val account = remember { session.account ?: vm.state.value.activeAccount.also { session.account = it } }
+    // Coming back to a running session: the editor starts again from what was last typed.
+    var model by remember { mutableStateOf(session.model?.also { mm -> controller.lastHtml?.let { mm.editorHtml = it } }) }
     var failed by remember { mutableStateOf(false) }
     var known by remember { mutableStateOf<List<Mailbox>>(emptyList()) }
     var askNoSubject by remember { mutableStateOf(false) }
@@ -168,6 +180,10 @@ private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: 
 
     LaunchedEffect(request) {
         if (account == null) { onClose(); return@LaunchedEffect }
+        if (session.model != null) {
+            known = withContext(Dispatchers.IO) { runCatching { vm.repo.knownAddresses(account) }.getOrDefault(emptyList()) }
+            return@LaunchedEffect
+        }
         val loaded = withContext(Dispatchers.IO) {
             known = runCatching { vm.repo.knownAddresses(account) }.getOrDefault(emptyList())
             runCatching {
@@ -182,7 +198,7 @@ private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: 
                 }
             }.getOrNull()
         }
-        if (loaded == null) failed = true else model = loaded
+        if (loaded == null) failed = true else { session.model = loaded; model = loaded }
     }
 
     val m = model
@@ -274,11 +290,12 @@ private fun ComposeContent(vm: MailViewModel, request: ComposeRequest, onClose: 
     LaunchedEffect(m, m?.editorKey) {
         val mm = m ?: return@LaunchedEffect
         delay(700)
+        val first = mm.baseline == null
         if (mm.baseline == null || mm.lastSaved == null) {
             val html = controller.html()
             if (mm.baseline == null) mm.baseline = mm.snapshot(html)
         }
-        if (isReply && mm.editorKey == 0 && request.restore == null) controller.focusStart()
+        if (first && isReply && mm.editorKey == 0 && request.restore == null) controller.focusStart()
         while (true) {
             delay(AUTOSAVE_MS)
             if (!closing && saveIfChanged()) {

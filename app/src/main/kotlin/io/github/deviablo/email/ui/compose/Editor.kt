@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.view.ViewGroup
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -19,6 +20,17 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 /** Talks to the editor page: formatting commands and reading the text back. */
 class EditorController {
     internal var web: WebView? = null
+
+    /** The text as of the last change, kept here so it outlives the WebView (e.g. when a foldable unfolds). */
+    @Volatile var lastHtml: String? = null
+        private set
+
+    /** Called by the editor page on every change; it only stores the text. */
+    inner class Bridge {
+        @JavascriptInterface
+        fun changed(html: String) { lastHtml = html }
+    }
+    internal val bridge = Bridge()
 
     private fun js(code: String, result: ((String?) -> Unit)? = null) {
         web?.evaluateJavascript(code) { result?.invoke(it) } ?: result?.invoke(null)
@@ -89,12 +101,16 @@ fun RichEditor(initialHtml: String, controller: EditorController, modifier: Modi
                     // Tapping a picture switches its size: full width, half, quarter (proportional).
                     override fun onPageFinished(view: WebView, url: String?) {
                         view.evaluateJavascript(
-                            "document.addEventListener('click',function(e){var i=e.target;if(i.tagName!='IMG')return;" +
-                                "var w=i.style.width;i.style.width=w==''?'50%':(w=='50%'?'25%':'');i.style.height='auto';});",
+                            "function sync(){EditorBridge.changed(document.body.innerHTML);}" +
+                                "document.body.addEventListener('input',sync);" +
+                                "document.addEventListener('click',function(e){var i=e.target;if(i.tagName!='IMG')return;" +
+                                "var w=i.style.width;i.style.width=w==''?'50%':(w=='50%'?'25%':'');i.style.height='auto';sync();});",
                             null,
                         )
                     }
                 }
+                // Only a "changed" callback; the page has no scripts of its own (CSP) and loads nothing.
+                addJavascriptInterface(controller.bridge, "EditorBridge")
                 loadDataWithBaseURL("about:blank", page(initialHtml, dark), "text/html", "utf-8", null)
                 controller.web = this
             }

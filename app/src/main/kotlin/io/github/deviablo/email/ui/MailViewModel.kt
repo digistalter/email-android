@@ -97,6 +97,9 @@ class MailViewModel(app: Application) : AndroidViewModel(app) {
     private val db = repo.db
     private val _state = MutableStateFlow(MailUiState())
     val state: StateFlow<MailUiState> = _state
+    /** Open composers by request; they outlive a move between full screen and window (ComposeScreen). */
+    internal val composeSessions = HashMap<ComposeRequest, Any>()
+
     // A channel, not a SharedFlow: snacks sent while the list is not on screen (e.g. from the
     // composer) wait until it is.
     private val _snacks = Channel<Snack>(Channel.BUFFERED)

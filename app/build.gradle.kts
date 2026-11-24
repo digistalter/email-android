@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.deviablo.email"
         minSdk = 31
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
     }
 
     // Release signing only on the build server: the key comes from GitHub secrets, never from the repository.
