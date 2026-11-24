@@ -338,7 +338,7 @@ private fun ConversationRow(c: Conversation, state: MailUiState, selected: Boole
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    highlighted(c.subject.ifBlank { stringResource(R.string.no_subject) }, highlight),
+                    highlighted(Threading.displaySubject(c.subject).ifBlank { stringResource(R.string.no_subject) }, highlight),
                     Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = strong, color = textColor, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 if (folderTag != null) {

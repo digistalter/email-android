@@ -73,6 +73,7 @@ import io.github.deviablo.email.R
 import io.github.deviablo.email.data.Conversation
 import io.github.deviablo.email.data.FolderRole
 import io.github.deviablo.email.data.StoredMessage
+import io.github.deviablo.email.data.Threading
 import io.github.deviablo.email.mail.Attachment
 import io.github.deviablo.email.mail.HtmlSafety
 import io.github.deviablo.email.mail.ParsedMessage
@@ -115,19 +116,23 @@ fun ReaderPane(
             IconButton(onClick = { sheet = true }) { Icon(Symbols.MoreVert, stringResource(R.string.more)) }
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(c.subject.ifBlank { stringResource(R.string.no_subject) }, style = MaterialTheme.typography.headlineSmall)
+            Text(Threading.displaySubject(c.subject).ifBlank { stringResource(R.string.no_subject) }, style = MaterialTheme.typography.headlineSmall)
             Surface(shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, colors.outlineVariant)) {
                 Text(folderLabel(state.folder(c.inFolder.first().folderId) ?: folder), Modifier.padding(horizontal = 8.dp, vertical = 3.dp), style = MaterialTheme.typography.labelMedium, color = colors.onSurfaceVariant)
             }
+            // Only this account counts as "me" (strict separation of accounts).
+            val own = state.accounts.firstOrNull { it.id == c.newest.accountId }?.address?.lowercase()
+            val me = stringResource(R.string.me_sender)
+            fun nameOf(m: StoredMessage) = if (m.fromAddress.lowercase() == own) me else m.fromName.ifBlank { m.fromAddress }
             c.messages.forEach { m ->
                 val isNewest = m.id == c.newest.id
                 if (m.id == openId) {
-                    OpenMessage(m, isNewest, c.messages.size > 1, vm, dark, onHeader = { if (!isNewest) openId = c.newest.id }, onReply = onReply)
+                    OpenMessage(m, nameOf(m), isNewest, c.messages.size > 1, vm, dark, onHeader = { if (!isNewest) openId = c.newest.id }, onReply = onReply)
                 } else {
-                    FoldedMessage(m, onClick = { openId = m.id })
+                    FoldedMessage(m, nameOf(m), onClick = { openId = m.id })
                 }
             }
-            val replyTarget = c.messages.lastOrNull { it.fromAddress.lowercase() !in state.accounts.map { a -> a.address.lowercase() } } ?: c.newest
+            val replyTarget = c.messages.lastOrNull { it.fromAddress.lowercase() != own } ?: c.newest
             Surface(
                 Modifier.fillMaxWidth().padding(top = 4.dp).clickable { onReply(replyTarget, ReplyMode.REPLY) },
                 shape = CircleShape, color = colors.surfaceContainerHigh,
@@ -179,20 +184,20 @@ fun ReaderPane(
 }
 
 @Composable
-private fun FoldedMessage(m: StoredMessage, onClick: () -> Unit) {
+private fun FoldedMessage(m: StoredMessage, name: String, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(Modifier.fillMaxWidth().clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), color = colors.surfaceContainer) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(m.fromName.ifBlank { m.fromAddress }, size = 32, unreadDot = !m.seen)
-            Text(m.fromName.ifBlank { m.fromAddress }, Modifier.padding(start = 12.dp), fontWeight = FontWeight.Medium, maxLines = 1)
-            Text(m.subject, Modifier.padding(start = 8.dp).weight(1f), color = colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // Name and date only, as in the Linux app; the subject is already the title above.
+            Text(name, Modifier.padding(start = 12.dp).weight(1f), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(Dates.short(m.dateMillis, stringResource(R.string.yesterday)), style = MaterialTheme.typography.labelSmall, color = colors.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Boolean, vm: MailViewModel, dark: Boolean, onHeader: () -> Unit, onReply: (StoredMessage, ReplyMode) -> Unit) {
+private fun OpenMessage(m: StoredMessage, name: String, isNewest: Boolean, showNewestBadge: Boolean, vm: MailViewModel, dark: Boolean, onHeader: () -> Unit, onReply: (StoredMessage, ReplyMode) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
     var parsed by remember(m.id) { mutableStateOf<ParsedMessage?>(null) }
@@ -226,7 +231,7 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Bo
             Row(Modifier.clickable(onClick = onHeader).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Avatar(m.fromName.ifBlank { m.fromAddress }, size = 32)
                 Column(Modifier.padding(start = 12.dp).weight(1f)) {
-                    Text(m.fromName.ifBlank { m.fromAddress }, fontWeight = FontWeight.Medium)
+                    Text(name, fontWeight = FontWeight.Medium)
                     Text(stringResource(R.string.to_line, recipients, fullDate), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 if (isNewest && showNewestBadge) {

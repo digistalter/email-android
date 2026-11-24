@@ -74,4 +74,4 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           gh release create "$GITHUB_REF_NAME" "e-mail-$version.apk" "e-mail-$version.apk.sha256" \
-            --title "E-Mail $version" --generate-notes
+            --title "E-Mail $version" --notes "Installation: see the [README](https://github.com/$GITHUB_REPOSITORY#install)."

@@ -27,6 +27,9 @@ object Threading {
     /** "Re: AW: Wohnung" → "wohnung"; used to match replies without References. */
     fun normalizeSubject(subject: String): String = subject.replace(prefix, "").trim().lowercase(Locale.ROOT)
 
+    /** "Re: AW: Wohnung" → "Wohnung": the conversation's title, as in the Linux app. */
+    fun displaySubject(subject: String): String = subject.replace(prefix, "").trim()
+
     fun isReply(subject: String): Boolean = prefix.containsMatchIn(subject)
 
     /**
