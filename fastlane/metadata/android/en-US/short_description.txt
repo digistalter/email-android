@@ -1,0 +1,1 @@
+Simple, modern email for several accounts. IMAP & SMTP, private, no ads.

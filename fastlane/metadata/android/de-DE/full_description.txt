@@ -1,0 +1,27 @@
+E-Mail ist eine einfache, moderne E-Mail-App. Mehrere Konten, IMAP und SMTP, sonst nichts: kein Kalender, kein Chat, keine Werbung, kein Tracking.
+
+<b>Mehrere Konten, strikt getrennt</b>
+Jedes Konto für sich, ohne gemeinsamen Posteingang. Die geführte Einrichtung erkennt den Anbieter, findet die Servereinstellungen und erklärt App-Passwörter Schritt für Schritt.
+
+<b>Unterhaltungen</b>
+Antworten stehen direkt unter der Nachricht, es ist immer genau eine Nachricht aufgeklappt, die neueste ist hervorgehoben. Wischen markiert als gelesen oder löscht, mit „Rückgängig“.
+
+<b>Schreiben</b>
+Formatierung, Bilder im Text, Anhänge, Cc und Bcc und eine Signatur pro Konto. Entwürfe werden automatisch gespeichert, und was ohne Internet geschrieben wird, geht raus, sobald die Verbindung wieder steht.
+
+<b>Suche</b>
+Im ganzen Konto mit Filtern, auch auf dem Server.
+
+<b>Benachrichtigungen über das System</b>
+Auf Wunsch pro Konto, mit „Als gelesen markieren“ und „Löschen“. Die App schaut alle 15 Minuten nach; mit „Sofort benachrichtigen“ hält sie eine Verbindung offen und meldet neue Mails nach wenigen Sekunden.
+
+<b>Telefon, Tablet und Foldable</b>
+Auf breiten Bildschirmen stehen Liste und Unterhaltung nebeneinander. Auf Foldables funktioniert das Außendisplay wie ein Telefon und das Innendisplay wie ein Tablet; beim Auf- und Zuklappen bleibt alles, wo es war, auch eine angefangene Mail.
+
+<b>Privat</b>
+Externe Bilder werden erst nach Freigabe geladen, Warnung bei Täusch-Links, Passwörter verschlüsselt im Android-Schlüsselspeicher. Deine Mails gehen nur zwischen deinem Telefon und deinem Mailanbieter hin und her; es gibt keinen Server von uns dazwischen und keine Cloud-Sicherung.
+
+<b>Funktioniert mit</b>
+Allen Anbietern mit IMAP und SMTP, zum Beispiel Gmail, GMX, WEB.DE, iCloud, Yahoo, Posteo, mailbox.org und den meisten Firmen- und Hostingpostfächern. Microsoft-Konten (Outlook, Hotmail, Office 365) werden nicht unterstützt, weil Microsoft Mail-Apps die Anmeldung mit Passwort nicht mehr erlaubt.
+
+E-Mail ist kostenlos und Open Source (GPL-3.0-or-later): https://github.com/digistalter/email-android

@@ -1,0 +1,27 @@
+E-Mail is a simple, modern email app. Several accounts, IMAP and SMTP, nothing else: no calendar, no chat, no ads, no tracking.
+
+<b>Several accounts, strictly separate</b>
+Every account on its own, without a shared inbox. The guided setup recognises your provider, finds the server settings and explains app passwords step by step.
+
+<b>Conversations</b>
+Replies sit right below the message, exactly one message is open at a time and the newest one stands out. Swipe to mark as read or to delete, with “Undo”.
+
+<b>Writing</b>
+Formatting, pictures in the text, attachments, Cc and Bcc, and one signature per account. Drafts are saved automatically, and what you write while offline is sent as soon as you are connected again.
+
+<b>Search</b>
+Across the whole account with filters, also on the server.
+
+<b>Notifications through the system</b>
+Per account if you like, with “Mark as read” and “Delete”. The app checks every 15 minutes; with “Notify immediately” it keeps a connection open and reports new mail within seconds.
+
+<b>Phone, tablet and foldable</b>
+On wide screens the list and the conversation sit side by side. On foldables the cover screen works like a phone and the inner screen like a tablet; folding keeps your place, even in a message you are writing.
+
+<b>Private</b>
+External images load only after you allow them, warnings for deceptive links, passwords encrypted with the Android Keystore. Your mail goes only between your phone and your mail provider; there is no server of ours in between and no cloud backup.
+
+<b>Works with</b>
+Every provider with IMAP and SMTP, for example Gmail, GMX, WEB.DE, iCloud, Yahoo, Posteo, mailbox.org and most company and hosting mailboxes. Microsoft accounts (Outlook, Hotmail, Office 365) are not supported, because Microsoft no longer lets mail apps sign in with a password.
+
+E-Mail is free and open source (GPL-3.0-or-later): https://github.com/digistalter/email-android
