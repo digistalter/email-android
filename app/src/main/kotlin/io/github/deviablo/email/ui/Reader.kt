@@ -252,7 +252,7 @@ private fun OpenMessage(m: StoredMessage, isNewest: Boolean, showNewestBadge: Bo
                             }
                         }
                     }
-                    MailWebView(prepared.html, p, allowNetwork = allow, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp))
+                    MailWebView(prepared.html, p, allowNetwork = allow, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp))
                     if (p.attachments.isNotEmpty()) AttachmentChips(m, p, vm)
                 }
                 failed -> Text(stringResource(R.string.message_unavailable), Modifier.padding(16.dp), color = colors.onSurfaceVariant)

@@ -116,7 +116,7 @@ object HtmlSafety {
             darkMode && !ownBackground -> Triple("#ffffff", "#1f1f1f", "#0b57d0")
             else -> Triple("transparent", "inherit", "#0b57d0")
         }
-        val sheet = if (darkMode && !plainText) "padding:12px;border-radius:12px;" else ""
+        val sheet = if (darkMode && !plainText) "padding:16px;border-radius:12px;" else ""
         return """<!doctype html><html><head><meta charset="utf-8">
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src cid: data: https: http:; style-src 'unsafe-inline';">
             <meta name="viewport" content="width=device-width, initial-scale=1">
